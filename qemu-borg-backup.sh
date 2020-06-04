@@ -1,7 +1,9 @@
 #!/bin/bash
 
-export BORG_PASSPHRASE=<PASSWORT>
-export BORG_REPO=ssh://<USER>@borg.fdatek.de:222/var/borg/<USER>/repo
+export BORG_PASSPHRASE=dspwd@lueers-wst
+export BORG_REPO=/borg/repo
+export MOUNTPOINT=/borg
+export FS_UUID=2cd7cd27-5ed0-4719-9450-42fc2954a639
 export KEEP_DAILY=7
 export KEEP_WEEKLY=4
 export KEEP_MONTHLY=4
@@ -9,6 +11,18 @@ export KEEP_MONTHLY=4
 if pidof -x -o $$ $(basename "$0"); then
   echo "Backup already running..."
   exit 1
+fi
+
+if [ "x" != "x$FS_UUID" ]; then
+    if mountpoint -q $MOUNTPOINT; then
+       echo "device already mounted..."
+       exit 1
+    fi
+    mount UUID="$FS_UUID" $MOUNTPOINT
+    if ! mountpoint -q $MOUNTPOINT; then
+       echo "unable to mount backup device..."
+       exit 1
+    fi
 fi
 
 trim() {
@@ -32,7 +46,7 @@ create_snapshot() {
 }
 
 if [ $# -eq 0 ]; then
-    export domains="Server"
+    export domains="winarbor"
 else
     export domains=$*
 fi
@@ -68,8 +82,7 @@ for domain in $domains; do
         else
             export myimages=$(trim $myimages)
             echo "Creating backup with borg of $myimages"
-            (while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do sleep 60; done) &
-            wait
+            while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do sleep 60; done
             declare -A imgsbackup
             eval $(virsh domblklist ${domain} --details | awk '/disk/ {print "imgsbackup["$3"]="$4}')
             for drive in $(virsh domblklist $domain --details | grep backup | awk '/disk/ {print $3}'); do
@@ -90,7 +103,10 @@ done
 # prune
 for domain in $domains; do
     if [ $domain != "" ]; then
-        (borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO) &
-        wait
+        borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
     fi
 done
+
+if [ "x" != "x$FS_UUID" ]; then
+    umount $MOUNTPOINT
+fi
