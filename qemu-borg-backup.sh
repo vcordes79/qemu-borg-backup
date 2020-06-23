@@ -1,9 +1,11 @@
 #!/bin/bash
 
-export BORG_PASSPHRASE=dspwd@lueers-wst
+export BORG_PASSPHRASE=dspwd@bunte-global
 export BORG_REPO=/borg/repo
 export MOUNTPOINT=/borg
-export FS_UUID=2cd7cd27-5ed0-4719-9450-42fc2954a639
+export FS_UUID=
+export NFS_PATH=192.168.178.109:/backup
+export DEFAULT_DOMAINS="server2019 windows10"
 export KEEP_DAILY=7
 export KEEP_WEEKLY=4
 export KEEP_MONTHLY=4
@@ -23,7 +25,20 @@ if [ "x" != "x$FS_UUID" ]; then
        echo "unable to mount backup device..."
        exit 1
     fi
+elif [ "x" != "x$NFS_PATH" ]; then
+    if mountpoint -q $MOUNTPOINT; then
+       echo "device already mounted..."
+       exit 1
+    fi
+    if ! mount.nfs -o rw,tcp,hard,nfsvers=4,rsize=65536,wsize=65536,noatime,intr,_netdev $NFS_PATH $MOUNTPOINT; then
+        exit
+    fi
+    if ! mountpoint -q $MOUNTPOINT; then
+       echo "unable to mount backup device..."
+       exit 1
+    fi
 fi
+
 
 trim() {
     local var="$*"
@@ -46,7 +61,7 @@ create_snapshot() {
 }
 
 if [ $# -eq 0 ]; then
-    export domains="winarbor"
+    export domains=$DEFAULT_DOMAINS
 else
     export domains=$*
 fi
@@ -107,6 +122,6 @@ for domain in $domains; do
     fi
 done
 
-if [ "x" != "x$FS_UUID" ]; then
+if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
     umount $MOUNTPOINT
 fi
