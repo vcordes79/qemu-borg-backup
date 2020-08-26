@@ -51,9 +51,9 @@ trim() {
 
 create_snapshot() {
     domain=$1; shift; ds=$*
-    if ! virsh snapshot-create-as --domain $domain --name backup.qcow2 --no-metadata --atomic --quiesce --disk-only $ds; then
+    if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 --no-metadata --atomic --quiesce --disk-only $ds; then
         sleep 10
-        if ! virsh snapshot-create-as --domain $domain --name backup.qcow2 --no-metadata --atomic --quiesce --disk-only $ds; then
+        if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 --no-metadata --atomic --quiesce --disk-only $ds; then
             return 1
         fi
     fi
@@ -70,7 +70,7 @@ fi
 export images=""
 for domain in $domains; do
     if [ "$domain" != "" ]; then
-        export backup_imgs=$(virsh domblklist $domain --details | grep backup | awk '/disk/ {print $3}')
+        export backup_imgs=$(virsh domblklist $domain --details | grep borg | awk '/disk/ {print $3}')
         if [ "$backup_imgs" != "" ]; then
             echo "error: snapshots still there for domain $domain"
             continue
@@ -81,7 +81,7 @@ for domain in $domains; do
         for drive in $(virsh domblklist $domain --details | awk '/disk/ {print $3}'); do
             export ds="--diskspec $drive,snapshot=external $ds"
         done
-        for image in $(virsh domblklist $domain --details | awk '/disk/ {print $4}'); do
+        for image in $(virsh domblklist $domain --details | grep -v "_backup" | awk '/disk/ {print $4}'); do
             export myimages="$image $myimages"
         done
         echo "Sending TRIM command to $domain"
@@ -100,7 +100,7 @@ for domain in $domains; do
             while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do sleep 60; done
             declare -A imgsbackup
             eval $(virsh domblklist ${domain} --details | awk '/disk/ {print "imgsbackup["$3"]="$4}')
-            for drive in $(virsh domblklist $domain --details | grep backup | awk '/disk/ {print $3}'); do
+            for drive in $(virsh domblklist $domain --details | grep borg | awk '/disk/ {print $3}'); do
                 if virsh blockcommit $domain $drive --active --pivot; then
                     mv ${imgsbackup["$drive"]} ${imgsbackup["$drive"]}.old
                 else
