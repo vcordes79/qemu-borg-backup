@@ -1,11 +1,11 @@
 #!/bin/bash
 
-export BORG_PASSPHRASE=dspwd@bunte-global
-export BORG_REPO=/borg/repo
-export MOUNTPOINT=/borg
+export BORG_PASSPHRASE=<PASSWORT>
+export BORG_REPO=
+export MOUNTPOINT=
 export FS_UUID=
-export NFS_PATH=192.168.178.109:/backup
-export DEFAULT_DOMAINS="server2019 windows10"
+export NFS_PATH=
+export DEFAULT_DOMAINS="pfsense"
 export KEEP_DAILY=7
 export KEEP_WEEKLY=4
 export KEEP_MONTHLY=4
@@ -51,9 +51,14 @@ trim() {
 
 create_snapshot() {
     domain=$1; shift; ds=$*
-    if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 --no-metadata --atomic --quiesce --disk-only $ds; then
+    d=$(echo $domain | tr "[:upper:]" "[:lower:]")
+    params="--no-metadata --atomic --disk-only"
+    if [ "$d" != "pfsense" ]; then
+        params="--quiesce $params"
+    fi
+    if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
         sleep 10
-        if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 --no-metadata --atomic --quiesce --disk-only $ds; then
+        if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
             return 1
         fi
     fi
@@ -84,12 +89,16 @@ for domain in $domains; do
         for image in $(virsh domblklist $domain --details | grep -v "_backup" | awk '/disk/ {print $4}'); do
             export myimages="$image $myimages"
         done
-        echo "Sending TRIM command to $domain"
-        virsh domfstrim $domain
 
-        # wait a minute to trim
-        echo "Waiting for TRIM on $domain"
-        sleep 60
+        d=$(echo $domain | tr "[:upper:]" "[:lower:]")
+        params="--no-metadata --atomic --disk-only"
+        if [ "$d" != "pfsense" ]; then
+            echo "Sending TRIM command to $domain"
+            virsh domfstrim $domain
+            # wait a minute to trim
+            echo "Waiting for TRIM on $domain"
+            sleep 120
+        fi
 
         echo "Creating snapshot of $domain"
         if ! create_snapshot $domain $ds; then
