@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export BORG_PASSPHRASE=<PASSWORT>
+export BORG_PASSPHRASE=
 export BORG_REPO=
 export MOUNTPOINT=
 export FS_UUID=
