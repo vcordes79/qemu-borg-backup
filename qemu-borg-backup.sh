@@ -1,14 +1,30 @@
 #!/bin/bash
 
 export BORG_PASSPHRASE=
-export BORG_REPO=
-export MOUNTPOINT=
-export FS_UUID=
-export NFS_PATH=
-export DEFAULT_DOMAINS="pfsense"
-export KEEP_DAILY=7
-export KEEP_WEEKLY=4
-export KEEP_MONTHLY=4
+if [ "x$BORG_REPO" == "x" ]; then
+  export BORG_REPO=
+fi
+if [ "x$MOUNTPOINT" == "x" ]; then
+  export MOUNTPOINT=
+fi
+if [ "x$FS_UUID" == "x" ]; then
+  export FS_UUID=
+fi
+if [ "x$NFS_PATH" == "x" ]; then
+  export NFS_PATH=
+fi
+if [ "x$DEFAULT_DOMAINS" == "x" ]; then
+  export DEFAULT_DOMAINS="pfsense"
+fi
+if [ "x$KEEP_DAILY" == "x" ]; then
+  export KEEP_DAILY=7
+fi
+if [ "x$KEEP_WEEKLY" == "x" ]; then
+  export KEEP_WEEKLY=4
+fi
+if [ "x$KEEP_MONTHLY" == "x" ]; then
+  export KEEP_MONTHLY=4
+fi
 
 if pidof -x -o $$ $(basename "$0"); then
   echo "Backup already running..."
