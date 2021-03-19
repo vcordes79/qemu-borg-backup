@@ -22,7 +22,7 @@ if [ "x$LXC_CONTAINERS" == "x" ]; then
   export LXC_CONTAINERS=$(lxc list --format=csv -c n)
 fi
 if [ "x$LXC_STORAGE_PATH" == "x" ]; then
-  export LXC_STORAGE_PATH=`lxc storage list --format=csv | cut -d\, -f3`
+  export LXC_STORAGE_PATH=`lxc storage get default source`
 fi
 if [ "x$KEEP_DAILY" == "x" ]; then
   export KEEP_DAILY=7
