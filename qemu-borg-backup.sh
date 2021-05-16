@@ -1,6 +1,8 @@
 #!/bin/bash
 
-export BORG_PASSPHRASE=
+if [ "x$BORG_PASSPHRASE" == "x" ]; then
+  export BORG_PASSPHRASE=
+fi
 if [ "x$BORG_REPO" == "x" ]; then
   export BORG_REPO=
 fi
@@ -73,7 +75,10 @@ create_snapshot() {
         params="--quiesce $params"
     fi
     if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
-        sleep 10
+        virsh reboot --domain $domain --mode agent
+        while ! virsh guestinfo --domain $domain --hostname; do
+            sleep 10
+        done
         if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
             return 1
         fi
