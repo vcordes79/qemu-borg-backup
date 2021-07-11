@@ -21,6 +21,9 @@ fi
 if [ "x$LXC_CONTAINERS" == "x" ]; then
   export LXC_CONTAINERS=$(lxc list --format=csv -c n)
 fi
+if [ "x$LXC_STOP_MYSQL" == "x" ]; then
+  export LXC_STOP_MYSQL=
+fi
 if [ "x$LXC_STORAGE_PATH" == "x" ]; then
   export LXC_STORAGE_PATH=`lxc storage get default source`
 fi
@@ -65,7 +68,13 @@ fi
 
 export PATH=/snap/bin:$PATH
 for container in $LXC_CONTAINERS; do
+    if [ "x$LXC_STOP_MYSQL" != "x" ]; then
+      lxc exec "$container" -- service mysql stop
+    fi
     lxc snapshot "$container" backup
+    if [ "x$LXC_STOP_MYSQL" != "x" ]; then
+      lxc exec "$container" -- service mysql start
+    fi
     borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$LXC_STORAGE_PATH/containers-snapshots/$container/backup" 2>&1
     lxc delete "$container/backup"
     borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
