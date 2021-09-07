@@ -18,6 +18,9 @@ fi
 if [ "x$DEFAULT_DOMAINS" == "x" ]; then
   export DEFAULT_DOMAINS="pfsense"
 fi
+if [ "x$PRUNE_FIRST" == "x" ]; then
+  export PRUNE_FIRST=
+fi
 if [ "x$KEEP_DAILY" == "x" ]; then
   export KEEP_DAILY=7
 fi
@@ -92,6 +95,14 @@ else
     export domains=$*
 fi
 
+if [ "x$PRUNE_FIRST" != "x" ]; then
+    for domain in $domains; do
+        if [ $domain != "" ]; then
+            borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+        fi
+    done
+fi
+
 # create snapshots
 export images=""
 for domain in $domains; do
@@ -146,11 +157,13 @@ for domain in $domains; do
 done
 
 # prune
-for domain in $domains; do
-    if [ $domain != "" ]; then
-        borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
-    fi
-done
+if [ "x$PRUNE_FIRST" == "x" ]; then
+    for domain in $domains; do
+        if [ $domain != "" ]; then
+            borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+        fi
+    done
+fi
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
     umount $MOUNTPOINT

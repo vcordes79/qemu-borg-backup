@@ -1,4 +1,5 @@
 #!/bin/bash
+export PATH=/snap/bin:$PATH
 
 if [ "x$BORG_PASSPHRASE" == "x" ]; then
   export BORG_PASSPHRASE=
@@ -27,6 +28,9 @@ fi
 if [ "x$LXC_STORAGE_PATH" == "x" ]; then
   export LXC_STORAGE_PATH=`lxc storage get default source`
 fi
+if [ "x$PRUNE_FIRST" == "x" ]; then
+  export PRUNE_FIRST=
+fi
 if [ "x$KEEP_DAILY" == "x" ]; then
   export KEEP_DAILY=7
 fi
@@ -40,6 +44,12 @@ fi
 if pidof -x -o $$ $(basename "$0"); then
   echo "Backup already running..."
   exit 1
+fi
+
+if [ "x$PRUNE_FIRST" != "x" ]; then
+    for container in $LXC_CONTAINERS; do
+        borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+    done
 fi
 
 if [ "x" != "x$FS_UUID" ]; then
@@ -66,7 +76,6 @@ elif [ "x" != "x$NFS_PATH" ]; then
     fi
 fi
 
-export PATH=/snap/bin:$PATH
 for container in $LXC_CONTAINERS; do
     if [ "x$LXC_STOP_MYSQL" != "x" ]; then
       lxc exec "$container" -- service mysql stop
@@ -77,7 +86,9 @@ for container in $LXC_CONTAINERS; do
     fi
     borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$LXC_STORAGE_PATH/containers-snapshots/$container/backup" 2>&1
     lxc delete "$container/backup"
-    borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+    if [ "x$PRUNE_FIRST" == "x" ]; then
+        borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+    fi
 done
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
