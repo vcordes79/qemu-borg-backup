@@ -50,6 +50,7 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
     for container in $LXC_CONTAINERS; do
         borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
     done
+    borg compact -v
 fi
 
 if [ "x" != "x$FS_UUID" ]; then
@@ -89,6 +90,7 @@ for container in $LXC_CONTAINERS; do
     if [ "x$PRUNE_FIRST" == "x" ]; then
         borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
     fi
+    borg compact -v
 done
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then

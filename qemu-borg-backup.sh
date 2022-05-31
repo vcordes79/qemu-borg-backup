@@ -101,6 +101,7 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
             borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
         fi
     done
+    borg compact -v
 fi
 
 # create snapshots
@@ -163,6 +164,7 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
             borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
         fi
     done
+    borg compact -v
 fi
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
