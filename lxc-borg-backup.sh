@@ -8,7 +8,7 @@ if [ "x$BORG_REPO" == "x" ]; then
   export BORG_REPO=
 fi
 if [ "x$BORG_EXCLUDE" == "x" ]; then
-  export BORG_EXCLUDE=
+  export BORG_EXCLUDE="--exclude 'sh:**/.btrfs' --exclude 'sh:**/.snapshots'"
 fi
 if [ "x$MOUNTPOINT" == "x" ]; then
   export MOUNTPOINT=
@@ -78,6 +78,9 @@ elif [ "x" != "x$NFS_PATH" ]; then
 fi
 
 for container in $LXC_CONTAINERS; do
+    if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/backup" ]; then
+        lxc delete "$container/borgbackup"
+    fi
     if [ "x$LXC_STOP_MYSQL" != "x" ]; then
       lxc exec "$container" -- service mysql stop
     fi
@@ -85,8 +88,8 @@ for container in $LXC_CONTAINERS; do
     if [ "x$LXC_STOP_MYSQL" != "x" ]; then
       lxc exec "$container" -- service mysql start
     fi
-    borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$LXC_STORAGE_PATH/containers-snapshots/$container/backup" 2>&1
-    lxc delete "$container/backup"
+    borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" 2>&1
+    lxc delete "$container/borgbackup"
     if [ "x$PRUNE_FIRST" == "x" ]; then
         borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
     fi
