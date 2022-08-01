@@ -78,13 +78,13 @@ elif [ "x" != "x$NFS_PATH" ]; then
 fi
 
 for container in $LXC_CONTAINERS; do
-    if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/backup" ]; then
+    if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
         lxc delete "$container/borgbackup"
     fi
     if [ "x$LXC_STOP_MYSQL" != "x" ]; then
       lxc exec "$container" -- service mysql stop
     fi
-    lxc snapshot "$container" backup
+    lxc snapshot "$container" borgbackup
     if [ "x$LXC_STOP_MYSQL" != "x" ]; then
       lxc exec "$container" -- service mysql start
     fi
