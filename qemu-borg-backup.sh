@@ -17,9 +17,18 @@ create_snapshot() {
         params="--quiesce $params"
     fi
     if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
-        virsh reboot --domain $domain --mode agent
+        if ! virsh reboot --domain $domain --mode agent; then
+            echo "Reboot failed"
+            return 1
+        fi
+        numtries=0
         while ! virsh guestinfo --domain $domain --hostname; do
             sleep 10
+            numtries=$[numtries+1]
+            if [ $numtries -gt 60 ]; then
+                error "Waiting for reboot failed"
+                return 1
+            fi
         done
         if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
             return 1
@@ -57,7 +66,7 @@ if [ "$domain" != "" ]; then
         echo "warning: snapshots still there for domain $domain"
         if ! blockcommit $domain; then
             echo "error: blockcommit not successful for domain $domain"
-             exit 1
+            exit 1
         fi
     fi 
 
