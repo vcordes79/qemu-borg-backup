@@ -58,44 +58,43 @@ if [ "$domain" != "" ]; then
         if ! blockcommit $domain; then
              exit 1
         fi
-    else 
-        export ds=""
-        export myimages=""
-        for drive in $(virsh domblklist $domain --details | awk '/disk/ {print $3}'); do
-            export ds="--diskspec $drive,snapshot=external $ds"
-        done
-        for image in $(virsh domblklist $domain --details | grep -v "_backup" | awk '/disk/ {print $4}'); do
-            export myimages="$image $myimages"
-        done
+    fi 
+    export ds=""
+    export myimages=""
+    for drive in $(virsh domblklist $domain --details | awk '/disk/ {print $3}'); do
+        export ds="--diskspec $drive,snapshot=external $ds"
+    done
+    for image in $(virsh domblklist $domain --details | grep -v "_backup" | awk '/disk/ {print $4}'); do
+        export myimages="$image $myimages"
+    done
 
-        d=$(echo $domain | tr "[:upper:]" "[:lower:]")
-        params="--no-metadata --atomic --disk-only"
-        if [ "$d" != "pfsense" ]; then
-            echo "Sending TRIM command to $domain"
-            virsh domfstrim $domain
-            # wait a minute to trim
-            echo "Waiting for TRIM on $domain"
-            sleep 120
-        fi
+    d=$(echo $domain | tr "[:upper:]" "[:lower:]")
+    params="--no-metadata --atomic --disk-only"
+    if [ "$d" != "pfsense" ]; then
+        echo "Sending TRIM command to $domain"
+        virsh domfstrim $domain
+        # wait a minute to trim
+        echo "Waiting for TRIM on $domain"
+        sleep 120
+    fi
 
-        echo "Creating snapshot of $domain"
-        if ! create_snapshot $domain $ds; then
-            echo "error: snapshot creation failed, returned with $?"
+    echo "Creating snapshot of $domain"
+    if ! create_snapshot $domain $ds; then
+        echo "error: snapshot creation failed, returned with $?"
+        exit 1
+    fi
+
+    export myimages=$(trim $myimages)
+    echo "Creating backup with borg of $myimages"
+    numtries=0
+    while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do 
+        sleep 60; 
+        numtries=$[numtries+1]
+        if [ $numtries -gt $BORG_TRIES ]; then
+            echo "error creating backup"
             exit 1
         fi
-
-        export myimages=$(trim $myimages)
-        echo "Creating backup with borg of $myimages"
-        numtries=0
-        while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do 
-            sleep 60; 
-            numtries=$[numtries+1]
-            if [ $numtries -gt $BORG_TRIES ]; then
-                echo "error creating backup"
-                exit 1
-            fi
-        done
-    fi
+    done
 
     # blockcommit
     blockcommit $domain
