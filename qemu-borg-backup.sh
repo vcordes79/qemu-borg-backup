@@ -54,11 +54,13 @@ export domain=$1
 if [ "$domain" != "" ]; then
     export backup_imgs=$(virsh domblklist $domain --details | grep borg | awk '/disk/ {print $3}')
     if [ "$backup_imgs" != "" ]; then
-        echo "error: snapshots still there for domain $domain"
+        echo "warning: snapshots still there for domain $domain"
         if ! blockcommit $domain; then
+            echo "error: blockcommit not successful for domain $domain"
              exit 1
         fi
     fi 
+
     export ds=""
     export myimages=""
     for drive in $(virsh domblklist $domain --details | awk '/disk/ {print $3}'); do
