@@ -56,14 +56,19 @@ if [ "x$KEEP_MONTHLY" == "x" ]; then
 fi
 
 # lxc settings
-if [ "x$LXC_CONTAINERS" == "x" ]; then
-  export LXC_CONTAINERS=$(lxc list --format=csv -c n)
+if [ "x$LXC_BACKUP" == "x" ]; then
+  export LXC_BACKUP=y
 fi
-if [ "x$LXC_STOP_MYSQL" == "x" ]; then
-  export LXC_STOP_MYSQL=
-fi
-if [ "x$LXC_STORAGE_PATH" == "x" ]; then
-  export LXC_STORAGE_PATH=`lxc storage get default source`
+if [ "x$LXC_BACKUP" == "xy" ]; then
+  if [ "x$LXC_CONTAINERS" == "x" ]; then
+    export LXC_CONTAINERS=$(lxc list --format=csv -c n)
+  fi
+  if [ "x$LXC_STOP_MYSQL" == "x" ]; then
+    export LXC_STOP_MYSQL=
+  fi
+  if [ "x$LXC_STORAGE_PATH" == "x" ]; then
+    export LXC_STORAGE_PATH=`lxc storage get default source`
+  fi
 fi
 
 # domain / container settings
@@ -139,15 +144,17 @@ fi
 
 if [ "x$PRUNE_FIRST" != "x" ]; then
     phase="alte Backups löschen"
-    for container in $LXC_CONTAINERS; do
-        result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-        if [ $? -gt 0 ] ; then
-            write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden" 
-            write_warning "$phase" $result
-        else
-            write_success "$phase" "<pre>$result</pre>" 
-        fi
-    done
+    if [ "x$LXC_BACKUP" == "xy" ]; then
+      for container in $LXC_CONTAINERS; do
+          result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+          if [ $? -gt 0 ] ; then
+              write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden" 
+              write_warning "$phase" $result
+          else
+              write_success "$phase" "<pre>$result</pre>" 
+          fi
+      done
+    fi
     for domain in $domains; do
         if [ $domain != "" ]; then
             result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
@@ -186,8 +193,9 @@ for domain in $domains; do
 done
 
 # backup LXC
-phase="LXC-Backup"
-for container in $LXC_CONTAINERS; do
+if [ "x$LXC_BACKUP" == "xy" ]; then
+  phase="LXC-Backup"
+  for container in $LXC_CONTAINERS; do
     result=`lxc-borg-backup.sh $container 2>&1`
     exitCode=$?
     result="<pre>$result</pre>"
@@ -198,20 +206,23 @@ for container in $LXC_CONTAINERS; do
     else 
       write_success ""$phase" $container" "<pre>$result</pre>"
     fi
-done
+  done
+fi
 
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
     phase="alte Backups löschen"
-    for container in $LXC_CONTAINERS; do
+    if [ "x$LXC_BACKUP" == "xy" ]; then
+      for container in $LXC_CONTAINERS; do
         result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
         if [ $? -gt 0 ]; then
-            write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
-            write_warning "$phase" "<pre>$result</pre>"
+          write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
+          write_warning "$phase" "<pre>$result</pre>"
         else
-            write_success "$phase" "<pre>$result</pre>" 
+          write_success "$phase" "<pre>$result</pre>" 
         fi
-    done
+      done
+    fi
     for domain in $domains; do
         if [ $domain != "" ]; then
             result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
