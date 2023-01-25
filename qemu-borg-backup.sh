@@ -61,7 +61,7 @@ blockcommit() {
 export images=""
 export domain=$1
 if [ "$domain" != "" ]; then
-    if ! virsh list --all |grep "$domain"; then
+    if ! virsh list --all |grep "$domain" >/dev/null; then
         echo "error: VM nicht gefunden"
         exit 1
     fi
