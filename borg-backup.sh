@@ -16,6 +16,10 @@ write_info() {
   echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
 }
 
+write_success() {
+  echo "<tr style='background-color:lightgreen;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+}
+
 write_error() {
   echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
 }
@@ -140,6 +144,8 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
         if [ $? -gt 0 ] ; then
             write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden" 
             write_warning "$phase" $result
+        else
+            write_success "$phase" "<pre>$result</pre>" 
         fi
     done
     for domain in $domains; do
@@ -148,6 +154,8 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
             if [ $? -gt 0 ]; then
                 write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
                 write_warning "$phase" "<pre>$result</pre>"
+            else
+                write_success "$phase" "<pre>$result</pre>" 
             fi
         fi
     done
@@ -155,6 +163,8 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
     if [ $? -gt 0 ]; then
         write_warning "$phase" "Repository konnte nicht komprimiert werden"
         write_warning "$phase" "<pre>$result</pre>"
+    else
+        write_success "$phase" "<pre>$result</pre>" 
     fi
 fi
 
@@ -170,7 +180,7 @@ for domain in $domains; do
         elif [ $exitCode -eq 2 ]; then 
           write_warning ""$phase" $domain" "<pre>$result</pre>"
         else 
-          write_info ""$phase" $domain" "<pre>$result</pre>"
+          write_success ""$phase" $domain" "<pre>$result</pre>"
         fi
     fi
 done
@@ -186,7 +196,7 @@ for container in $LXC_CONTAINERS; do
     elif [ $exitCode -eq 2 ]; then 
       write_warning ""$phase" $container" "<pre>$result</pre>"
     else 
-      write_info ""$phase" $container" "<pre>$result</pre>"
+      write_success ""$phase" $container" "<pre>$result</pre>"
     fi
 done
 
@@ -198,6 +208,8 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
         if [ $? -gt 0 ]; then
             write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
             write_warning "$phase" "<pre>$result</pre>"
+        else
+            write_success "$phase" "<pre>$result</pre>" 
         fi
     done
     for domain in $domains; do
@@ -206,6 +218,8 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
             if [ $? -gt 0 ]; then
                 write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
                 write_warning "$phase" "<pre>$result</pre>"
+            else
+                write_success "$phase" "<pre>$result</pre>" 
             fi
         fi
     done
@@ -213,6 +227,8 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
     if [ $? -gt 0 ]; then
         write_warning "$phase" "Repository konnte nicht komprimiert werden"
         write_warning "$phase" "<pre>$result</pre>"
+    else
+        write_success "$phase" "<pre>$result</pre>" 
     fi
 fi
 
