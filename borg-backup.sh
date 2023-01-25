@@ -2,13 +2,31 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PATH=$PATH:$SCRIPT_DIR
 
+
+write_header() {
+  echo "<html><body><table>"
+}
+
+write_warning() {
+  echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  retval=2
+}
+
+write_info() {
+  echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+}
+
+write_error() {
+  echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
+}
+
+do_exit() {
+  echo '</table></body></html>'
+  exit $1
+}
+
+
 # repository settings
-if [ "x$BORG_PASSPHRASE" == "x" ]; then
-  export BORG_PASSPHRASE=
-fi
-if [ "x$BORG_REPO" == "x" ]; then
-  export BORG_REPO=
-fi
 if [ "x$MOUNTPOINT" == "x" ]; then
   export MOUNTPOINT=
 fi
@@ -64,29 +82,19 @@ fi
 
 retval=0
 
-write_header() {
-  echo "<html><body><table>"
-}
-
-write_warning() {
-  echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
-  retval=2
-}
-
-write_info() {
-  echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
-}
-
-write_error() {
-  echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
-}
-
-do_exit() {
-  echo '</table></body></html>'
-  exit $1
-}
-
 write_header
+
+phase="Parameterprüfung"
+if [ "x$BORG_PASSPHRASE" == "x" ]; then
+  write_error $phase "Kein Borg-Passwort angegeben"
+  do_exit 1
+fi
+if [ "x$BORG_REPO" == "x" ]; then
+  export BORG_REPO=
+  write_error $phase "Kein Borg-Repository angegeben"
+  do_exit 1
+fi
+
 
 if pidof -x -o $$ $(basename "$0"); then
   write_error "Vorbereitung" "Backup läuft bereits..."
