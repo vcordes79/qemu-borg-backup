@@ -61,6 +61,11 @@ blockcommit() {
 export images=""
 export domain=$1
 if [ "$domain" != "" ]; then
+    if ! virsh list --all |grep "$domain"; then
+        echo "error: VM nicht gefunden"
+        exit 1
+    fi
+
     export backup_imgs=$(virsh domblklist $domain --details | grep borg | awk '/disk/ {print $3}')
     if [ "$backup_imgs" != "" ]; then
         echo "warning: snapshots still there for domain $domain"

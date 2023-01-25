@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export PATH=$PATH:$SCRIPT_DIR
+
 # repository settings
 if [ "x$BORG_PASSPHRASE" == "x" ]; then
   export BORG_PASSPHRASE=
@@ -83,6 +86,8 @@ do_exit() {
   exit $1
 }
 
+write_header
+
 if pidof -x -o $$ $(basename "$0"); then
   write_error "Vorbereitung" "Backup läuft bereits..."
   exit 1
@@ -91,12 +96,12 @@ fi
 phase="Backupziel vorbereiten"
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
     if mountpoint -q $MOUNTPOINT; then
-       write_warning $phase "Mountpunkt nicht leer..."
+       write_warning "$phase" "Mountpunkt nicht leer..."
        if ! umount $MOUNTPOINT; then
-          write_error $phase "Konnte nicht ausgehängt werden..."
+          write_error "$phase" "Konnte nicht ausgehängt werden..."
           do_exit 1
        fi
-       write_info $phase "Erfolgreich ausgehängt..."
+       write_info "$phase" "Erfolgreich ausgehängt..."
        if mountpoint -q $MOUNTPOINT; then
           do_exit 1
        fi
@@ -106,16 +111,16 @@ fi
 if [ "x" != "x$FS_UUID" ]; then
     mount UUID="$FS_UUID" $MOUNTPOINT
     if ! mountpoint -q $MOUNTPOINT; then
-       write_error $phase "Backupziel konnte nicht eingehängt werden..."
+       write_error "$phase" "Backupziel konnte nicht eingehängt werden..."
        do_exit 1
     fi
 elif [ "x" != "x$NFS_PATH" ]; then
     if ! mount.nfs -o rw,tcp,hard,nfsvers=4.0,rsize=65536,wsize=65536,noatime,intr,_netdev $NFS_PATH $MOUNTPOINT; then
-       write_error $phase "Backupziel konnte nicht eingehängt werden..."
+       write_error "$phase" "Backupziel konnte nicht eingehängt werden..."
        do_exit 1
     fi
     if ! mountpoint -q $MOUNTPOINT; then
-       write_error $phase "Backupziel konnte nicht eingehängt werden..."
+       write_error "$phase" "Backupziel konnte nicht eingehängt werden..."
        do_exit 1
     fi
 fi
@@ -125,23 +130,23 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
     for container in $LXC_CONTAINERS; do
         result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
         if [ $? -gt 0 ] ; then
-            write_warning $phase "Backups für $container konnten nicht aufgeräumt werden" 
-            write_warning $phase $result
+            write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden" 
+            write_warning "$phase" $result
         fi
     done
     for domain in $domains; do
         if [ $domain != "" ]; then
             result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
             if [ $? -gt 0 ]; then
-                write_warning $phase "Backups für $domain konnten nicht aufgeräumt werden"
-                write_warning $phase "<pre>$result</pre>"
+                write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
+                write_warning "$phase" "<pre>$result</pre>"
             fi
         fi
     done
     result=`borg compact -v 2>&1`
     if [ $? -gt 0 ]; then
-        write_warning $phase "Repository konnte nicht komprimiert werden"
-        write_warning $phase "<pre>$result</pre>"
+        write_warning "$phase" "Repository konnte nicht komprimiert werden"
+        write_warning "$phase" "<pre>$result</pre>"
     fi
 fi
 
@@ -149,14 +154,14 @@ fi
 phase="VM-Backup"
 for domain in $domains; do
     if [ $domain != "" ]; then
-        result=`./qemu-borg-backup.sh $domain 2>&1`
+        result=`qemu-borg-backup.sh $domain 2>&1`
         result="<pre>$result</pre>"
         if [ $? -eq 1 ]; then 
-          write_error "$phase $domain" $result
+          write_error ""$phase" $domain" "<pre>$result</pre>"
         elif [ $? -eq 2 ]; then 
-          write_warning "$phase $domain" $result
+          write_warning ""$phase" $domain" "<pre>$result</pre>"
         else 
-          write_info "$phase $domain" $result
+          write_info ""$phase" $domain" "<pre>$result</pre>"
         fi
     fi
 done
@@ -164,39 +169,40 @@ done
 # backup LXC
 phase="LXC-Backup"
 for container in $LXC_CONTAINERS; do
-    result=`./lxc-borg-backup.sh $container 2>&1`
+    result=`lxc-borg-backup.sh $container 2>&1`
     result="<pre>$result</pre>"
     if [ $? -eq 1 ]; then 
-      write_error "$phase $container" $result
+      write_error ""$phase" $container" "<pre>$result</pre>"
     elif [ $? -eq 2 ]; then 
-      write_warning "$phase $container" $result
+      write_warning ""$phase" $container" "<pre>$result</pre>"
     else 
-      write_info "$phase $container" $result
+      write_info ""$phase" $container" "<pre>$result</pre>"
     fi
 done
 
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
+    phase="alte Backups löschen"
     for container in $LXC_CONTAINERS; do
         result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
         if [ $? -gt 0 ]; then
-            write_warning $phase "Backups für $container konnten nicht aufgeräumt werden"
-            write_warning $phase "<pre>$result</pre>"
+            write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
+            write_warning "$phase" "<pre>$result</pre>"
         fi
     done
     for domain in $domains; do
         if [ $domain != "" ]; then
             result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
             if [ $? -gt 0 ]; then
-                write_warning $phase "Backups für $domain konnten nicht aufgeräumt werden"
-                write_warning $phase "<pre>$result</pre>"
+                write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
+                write_warning "$phase" "<pre>$result</pre>"
             fi
         fi
     done
     result=`borg compact -v 2>&1`
     if [ $? -gt 0 ]; then
-        write_warning $phase "Repository konnte nicht komprimiert werden"
-        write_warning $phase "<pre>$result</pre>"
+        write_warning "$phase" "Repository konnte nicht komprimiert werden"
+        write_warning "$phase" "<pre>$result</pre>"
     fi
 fi
 
