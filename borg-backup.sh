@@ -155,10 +155,11 @@ phase="VM-Backup"
 for domain in $domains; do
     if [ $domain != "" ]; then
         result=`qemu-borg-backup.sh $domain 2>&1`
+        exitCode=$?
         result="<pre>$result</pre>"
-        if [ $? -eq 1 ]; then 
+        if [ $exitCode -eq 1 ]; then 
           write_error ""$phase" $domain" "<pre>$result</pre>"
-        elif [ $? -eq 2 ]; then 
+        elif [ $exitCode -eq 2 ]; then 
           write_warning ""$phase" $domain" "<pre>$result</pre>"
         else 
           write_info ""$phase" $domain" "<pre>$result</pre>"
@@ -170,10 +171,11 @@ done
 phase="LXC-Backup"
 for container in $LXC_CONTAINERS; do
     result=`lxc-borg-backup.sh $container 2>&1`
+    exitCode=$?
     result="<pre>$result</pre>"
-    if [ $? -eq 1 ]; then 
+    if [ $exitCode -eq 1 ]; then 
       write_error ""$phase" $container" "<pre>$result</pre>"
-    elif [ $? -eq 2 ]; then 
+    elif [ $exitCode -eq 2 ]; then 
       write_warning ""$phase" $container" "<pre>$result</pre>"
     else 
       write_info ""$phase" $container" "<pre>$result</pre>"
