@@ -108,6 +108,7 @@ if [ "$domain" != "" ]; then
         numtries=$[numtries+1]
         if [ $numtries -gt $BORG_TRIES ]; then
             echo "error creating backup"
+            blockcommit $domain
             exit 1
         fi
     done
