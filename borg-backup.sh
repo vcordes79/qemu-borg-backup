@@ -59,20 +59,46 @@ if [ "x$BORG_TRIES" == "x" ]; then
   export BORG_TRIES=5
 fi
 
+retval=0
+
+write_header() {
+  echo "<html><body><table>"
+}
+
+write_warning() {
+  echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  retval=2
+}
+
+write_info() {
+  echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+}
+
+write_error() {
+  echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
+}
+
+do_exit() {
+  echo '</table></body></html>'
+  exit $1
+}
+
 if pidof -x -o $$ $(basename "$0"); then
-  echo "Backup already running..."
+  write_error "Vorbereitung" "Backup läuft bereits..."
   exit 1
 fi
 
+phase="Backupziel vorbereiten"
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
     if mountpoint -q $MOUNTPOINT; then
-       echo "device already mounted..."
+       write_warning $phase "Mountpunkt nicht leer..."
        if ! umount $MOUNTPOINT; then
-          exit 1
+          write_error $phase "Konnte nicht ausgehängt werden..."
+          do_exit 1
        fi
-       echo "successfully unmounted..."
+       write_info $phase "Erfolgreich ausgehängt..."
        if mountpoint -q $MOUNTPOINT; then
-          exit 1
+          do_exit 1
        fi
     fi
 fi
@@ -80,56 +106,102 @@ fi
 if [ "x" != "x$FS_UUID" ]; then
     mount UUID="$FS_UUID" $MOUNTPOINT
     if ! mountpoint -q $MOUNTPOINT; then
-       echo "unable to mount backup device..."
-       exit 1
+       write_error $phase "Backupziel konnte nicht eingehängt werden..."
+       do_exit 1
     fi
 elif [ "x" != "x$NFS_PATH" ]; then
-    if ! mount.nfs -o rw,tcp,hard,nfsvers=4,rsize=65536,wsize=65536,noatime,intr,_netdev $NFS_PATH $MOUNTPOINT; then
-        exit
+    if ! mount.nfs -o rw,tcp,hard,nfsvers=4.0,rsize=65536,wsize=65536,noatime,intr,_netdev $NFS_PATH $MOUNTPOINT; then
+       write_error $phase "Backupziel konnte nicht eingehängt werden..."
+       do_exit 1
     fi
     if ! mountpoint -q $MOUNTPOINT; then
-       echo "unable to mount backup device..."
-       exit 1
+       write_error $phase "Backupziel konnte nicht eingehängt werden..."
+       do_exit 1
     fi
 fi
 
 if [ "x$PRUNE_FIRST" != "x" ]; then
+    phase="alte Backups löschen"
     for container in $LXC_CONTAINERS; do
-        borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+        result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        if [ $? -gt 0 ] ; then
+            write_warning $phase "Backups für $container konnten nicht aufgeräumt werden" 
+            write_warning $phase $result
+        fi
     done
     for domain in $domains; do
         if [ $domain != "" ]; then
-            borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+            result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+            if [ $? -gt 0 ]; then
+                write_warning $phase "Backups für $domain konnten nicht aufgeräumt werden"
+                write_warning $phase "<pre>$result</pre>"
+            fi
         fi
     done
-    borg compact -v
+    result=`borg compact -v 2>&1`
+    if [ $? -gt 0 ]; then
+        write_warning $phase "Repository konnte nicht komprimiert werden"
+        write_warning $phase "<pre>$result</pre>"
+    fi
 fi
 
 # backup VMs
+phase="VM-Backup"
 for domain in $domains; do
     if [ $domain != "" ]; then
-        ./qemu-borg-backup.sh $domain
+        result=`./qemu-borg-backup.sh $domain 2>&1`
+        result="<pre>$result</pre>"
+        if [ $? -eq 1 ]; then 
+          write_error "$phase $domain" $result
+        elif [ $? -eq 2 ]; then 
+          write_warning "$phase $domain" $result
+        else 
+          write_info "$phase $domain" $result
+        fi
     fi
 done
 
 # backup LXC
+phase="LXC-Backup"
 for container in $LXC_CONTAINERS; do
-    ./lxc-borg-backup.sh $container
+    result=`./lxc-borg-backup.sh $container 2>&1`
+    result="<pre>$result</pre>"
+    if [ $? -eq 1 ]; then 
+      write_error "$phase $container" $result
+    elif [ $? -eq 2 ]; then 
+      write_warning "$phase $container" $result
+    else 
+      write_info "$phase $container" $result
+    fi
 done
 
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
     for container in $LXC_CONTAINERS; do
-        borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+        result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        if [ $? -gt 0 ]; then
+            write_warning $phase "Backups für $container konnten nicht aufgeräumt werden"
+            write_warning $phase "<pre>$result</pre>"
+        fi
     done
     for domain in $domains; do
         if [ $domain != "" ]; then
-            borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO
+            result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+            if [ $? -gt 0 ]; then
+                write_warning $phase "Backups für $domain konnten nicht aufgeräumt werden"
+                write_warning $phase "<pre>$result</pre>"
+            fi
         fi
     done
-    borg compact -v
+    result=`borg compact -v 2>&1`
+    if [ $? -gt 0 ]; then
+        write_warning $phase "Repository konnte nicht komprimiert werden"
+        write_warning $phase "<pre>$result</pre>"
+    fi
 fi
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
     umount $MOUNTPOINT
 fi
+
+do_exit $retval
