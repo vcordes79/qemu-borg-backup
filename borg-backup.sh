@@ -98,7 +98,7 @@ fi
 
 if pidof -x -o $$ $(basename "$0"); then
   write_error "Vorbereitung" "Backup läuft bereits..."
-  exit 1
+  do_exit 1
 fi
 
 phase="Backupziel vorbereiten"
