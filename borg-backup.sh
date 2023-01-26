@@ -70,7 +70,7 @@ borg_prune() {
       done
     fi
 
-    if borg --help |grep compact; then
+    if borg --help |grep compact >/dev/null; then
       result=`borg compact -v 2>&1`
       if [ $? -gt 0 ]; then
           write_warning "$phase" "Repository konnte nicht komprimiert werden"
