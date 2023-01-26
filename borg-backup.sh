@@ -29,6 +29,55 @@ do_exit() {
   exit $1
 }
 
+borg_prune() {
+    phase="alte Backups löschen"
+    if [ "x$LXC_BACKUP" == "xy" ]; then
+      for container in $LXC_CONTAINERS; do
+        result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        if [ $? -gt 0 ]; then
+          write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
+          write_warning "$phase" "<pre>$result</pre>"
+        else
+          write_success "$phase" "<pre>$result</pre>" 
+        fi
+      done
+    fi
+    for domain in $domains; do
+        if [ $domain != "" ]; then
+            result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+            if [ $? -gt 0 ]; then
+                write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
+                write_warning "$phase" "<pre>$result</pre>"
+            else
+                write_success "$phase" "<pre>$result</pre>" 
+            fi
+        fi
+    done
+    if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
+      phase="Dateibackup"
+      for repo in ${!BORG_DIRS[@]}; do 
+        result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        if [ $? -gt 0 ]; then
+          write_warning "$phase" "Backups für $repo konnten nicht aufgeräumt werden"
+          write_warning "$phase" "<pre>$result</pre>"
+        else
+          write_success "$phase" "<pre>$result</pre>" 
+        fi
+      done
+    fi
+
+    if borg --help |grep compact; then
+      result=`borg compact -v 2>&1`
+      if [ $? -gt 0 ]; then
+          write_warning "$phase" "Repository konnte nicht komprimiert werden"
+          write_warning "$phase" "<pre>$result</pre>"
+      else
+          write_success "$phase" "<pre>$result</pre>" 
+      fi
+    else
+      write_warning "$phase" "BORG: Compact nicht unterstützt"
+    fi
+}
 
 # repository settings
 if [ "x$MOUNTPOINT" == "x" ]; then
@@ -143,57 +192,24 @@ elif [ "x" != "x$NFS_PATH" ]; then
 fi
 
 if [ "x$PRUNE_FIRST" != "x" ]; then
-    phase="alte Backups löschen"
-    if [ "x$LXC_BACKUP" == "xy" ]; then
-      for container in $LXC_CONTAINERS; do
-          result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-          if [ $? -gt 0 ] ; then
-              write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden" 
-              write_warning "$phase" $result
-          else
-              write_success "$phase" "<pre>$result</pre>" 
-          fi
-      done
-    fi
-    for domain in $domains; do
-        if [ $domain != "" ]; then
-            result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-            if [ $? -gt 0 ]; then
-                write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
-                write_warning "$phase" "<pre>$result</pre>"
-            else
-                write_success "$phase" "<pre>$result</pre>" 
-            fi
-        fi
-    done
-    if borg --help |grep compact; then
-      result=`borg compact -v 2>&1`
-      if [ $? -gt 0 ]; then
-          write_warning "$phase" "Repository konnte nicht komprimiert werden"
-          write_warning "$phase" "<pre>$result</pre>"
-      else
-          write_success "$phase" "<pre>$result</pre>" 
-      fi
-    else
-      write_warning "$phase" "BORG: Compact nicht unterstützt"
-    fi
+  borg_prune  
 fi
 
 # backup VMs
 phase="VM-Backup"
 for domain in $domains; do
-    if [ $domain != "" ]; then
-        result=`qemu-borg-backup.sh $domain 2>&1`
-        exitCode=$?
-        result="<pre>$result</pre>"
-        if [ $exitCode -eq 1 ]; then 
-          write_error ""$phase" $domain" "<pre>$result</pre>"
-        elif [ $exitCode -eq 2 ]; then 
-          write_warning ""$phase" $domain" "<pre>$result</pre>"
-        else 
-          write_success ""$phase" $domain" "<pre>$result</pre>"
-        fi
+  if [ $domain != "" ]; then
+    result=`qemu-borg-backup.sh $domain 2>&1`
+    exitCode=$?
+    result="<pre>$result</pre>"
+    if [ $exitCode -eq 1 ]; then 
+      write_error ""$phase" $domain" "<pre>$result</pre>"
+    elif [ $exitCode -eq 2 ]; then 
+      write_warning ""$phase" $domain" "<pre>$result</pre>"
+    else 
+      write_success ""$phase" $domain" "<pre>$result</pre>"
     fi
+  fi
 done
 
 # backup LXC
@@ -213,42 +229,26 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
   done
 fi
 
+# Dateibackup
+if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
+  phase="Dateibackup"
+  for repo in ${!BORG_DIRS[@]}; do 
+    result=`borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' ${BORG_DIRS["$repo"]} 2>&1`
+    exitCode=$?
+    result="<pre>$result</pre>"
+    if [ $exitCode -eq 1 ]; then 
+      write_error ""$phase" $container" "<pre>$result</pre>"
+    elif [ $exitCode -eq 2 ]; then 
+      write_warning ""$phase" $container" "<pre>$result</pre>"
+    else 
+      write_success ""$phase" $container" "<pre>$result</pre>"
+    fi
+  done
+fi
+
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
-    phase="alte Backups löschen"
-    if [ "x$LXC_BACKUP" == "xy" ]; then
-      for container in $LXC_CONTAINERS; do
-        result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-        if [ $? -gt 0 ]; then
-          write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
-          write_warning "$phase" "<pre>$result</pre>"
-        else
-          write_success "$phase" "<pre>$result</pre>" 
-        fi
-      done
-    fi
-    for domain in $domains; do
-        if [ $domain != "" ]; then
-            result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-            if [ $? -gt 0 ]; then
-                write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
-                write_warning "$phase" "<pre>$result</pre>"
-            else
-                write_success "$phase" "<pre>$result</pre>" 
-            fi
-        fi
-    done
-    if borg --help |grep compact; then
-      result=`borg compact -v 2>&1`
-      if [ $? -gt 0 ]; then
-          write_warning "$phase" "Repository konnte nicht komprimiert werden"
-          write_warning "$phase" "<pre>$result</pre>"
-      else
-          write_success "$phase" "<pre>$result</pre>" 
-      fi
-    else
-      write_warning "$phase" "BORG: Compact nicht unterstützt"
-    fi
+  borg_prune
 fi
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
