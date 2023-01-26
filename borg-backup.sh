@@ -33,12 +33,14 @@ borg_prune() {
     phase="alte Backups löschen"
     if [ "x$LXC_BACKUP" == "xy" ]; then
       for container in $LXC_CONTAINERS; do
-        result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-        if [ $? -gt 0 ]; then
-          write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
-          write_warning "$phase" "<pre>$result</pre>"
-        else
-          write_success "$phase" "<pre>$result</pre>" 
+        if [ $container != "" ]; then
+          result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+          if [ $? -gt 0 ]; then
+            write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
+            write_warning "$phase" "<pre>$result</pre>"
+          else
+            write_success "$phase" "<pre>$result</pre>" 
+          fi
         fi
       done
     fi
@@ -56,12 +58,14 @@ borg_prune() {
     if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
       phase="Dateibackup"
       for repo in ${!BORG_DIRS[@]}; do 
-        result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-        if [ $? -gt 0 ]; then
-          write_warning "$phase" "Backups für $repo konnten nicht aufgeräumt werden"
-          write_warning "$phase" "<pre>$result</pre>"
-        else
-          write_success "$phase" "<pre>$result</pre>" 
+        if [ $repo != "" ]; then
+          result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+          if [ $? -gt 0 ]; then
+            write_warning "$phase" "Backups für $repo konnten nicht aufgeräumt werden"
+            write_warning "$phase" "<pre>$result</pre>"
+          else
+            write_success "$phase" "<pre>$result</pre>" 
+          fi
         fi
       done
     fi
@@ -252,7 +256,7 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
 fi
 
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
-    umount $MOUNTPOINT
+  umount $MOUNTPOINT
 fi
 
 do_exit $retval
