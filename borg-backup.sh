@@ -166,12 +166,16 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
             fi
         fi
     done
-    result=`borg compact -v 2>&1`
-    if [ $? -gt 0 ]; then
-        write_warning "$phase" "Repository konnte nicht komprimiert werden"
-        write_warning "$phase" "<pre>$result</pre>"
+    if borg --help |grep compact; then
+      result=`borg compact -v 2>&1`
+      if [ $? -gt 0 ]; then
+          write_warning "$phase" "Repository konnte nicht komprimiert werden"
+          write_warning "$phase" "<pre>$result</pre>"
+      else
+          write_success "$phase" "<pre>$result</pre>" 
+      fi
     else
-        write_success "$phase" "<pre>$result</pre>" 
+      write_warning "$phase" "BORG: Compact nicht unterstützt"
     fi
 fi
 
@@ -234,12 +238,16 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
             fi
         fi
     done
-    result=`borg compact -v 2>&1`
-    if [ $? -gt 0 ]; then
-        write_warning "$phase" "Repository konnte nicht komprimiert werden"
-        write_warning "$phase" "<pre>$result</pre>"
+    if borg --help |grep compact; then
+      result=`borg compact -v 2>&1`
+      if [ $? -gt 0 ]; then
+          write_warning "$phase" "Repository konnte nicht komprimiert werden"
+          write_warning "$phase" "<pre>$result</pre>"
+      else
+          write_success "$phase" "<pre>$result</pre>" 
+      fi
     else
-        write_success "$phase" "<pre>$result</pre>" 
+      write_warning "$phase" "BORG: Compact nicht unterstützt"
     fi
 fi
 
