@@ -55,7 +55,6 @@ borg_prune() {
         fi
     done
     if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
-      phase="Dateibackup"
       for repo in ${!BORG_DIRS[@]}; do 
         if [ $repo != "" ]; then
           result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
