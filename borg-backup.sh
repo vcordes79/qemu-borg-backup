@@ -2,7 +2,6 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PATH=$PATH:$SCRIPT_DIR
 
-
 write_header() {
   echo "<html><body><table>"
 }
@@ -36,10 +35,10 @@ borg_prune() {
         if [ $container != "" ]; then
           result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
           if [ $? -gt 0 ]; then
-            write_warning "$phase" "Backups für $container konnten nicht aufgeräumt werden"
-            write_warning "$phase" "<pre>$result</pre>"
+            write_warning "$phase $container" "Backups für $container konnten nicht aufgeräumt werden"
+            write_warning "$phase $container" "<pre>$result</pre>"
           else
-            write_success "$phase" "<pre>$result</pre>" 
+            write_success "$phase $container" "<pre>$result</pre>" 
           fi
         fi
       done
@@ -48,10 +47,10 @@ borg_prune() {
         if [ $domain != "" ]; then
             result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
             if [ $? -gt 0 ]; then
-                write_warning "$phase" "Backups für $domain konnten nicht aufgeräumt werden"
-                write_warning "$phase" "<pre>$result</pre>"
+                write_warning "$phase $domain" "Backups für $domain konnten nicht aufgeräumt werden"
+                write_warning "$phase $domain" "<pre>$result</pre>"
             else
-                write_success "$phase" "<pre>$result</pre>" 
+                write_success "$phase $domain" "<pre>$result</pre>" 
             fi
         fi
     done
@@ -61,15 +60,16 @@ borg_prune() {
         if [ $repo != "" ]; then
           result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
           if [ $? -gt 0 ]; then
-            write_warning "$phase" "Backups für $repo konnten nicht aufgeräumt werden"
-            write_warning "$phase" "<pre>$result</pre>"
+            write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
+            write_warning "$phase $repo" "<pre>$result</pre>"
           else
-            write_success "$phase" "<pre>$result</pre>" 
+            write_success "$phase $repo" "<pre>$result</pre>" 
           fi
         fi
       done
     fi
 
+    phase="Speicherplatz freigeben"
     if borg --help |grep compact >/dev/null; then
       result=`borg compact -v 2>&1`
       if [ $? -gt 0 ]; then
