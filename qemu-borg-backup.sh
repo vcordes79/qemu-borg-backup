@@ -13,7 +13,7 @@ create_snapshot() {
     domain=$1; shift; ds=$*
     d=$(echo $domain | tr "[:upper:]" "[:lower:]")
     params="--no-metadata --atomic --disk-only"
-    if virsh guestinfo $domain >/dev/null; then
+    if virsh guestinfo $domain 2>&1 >/dev/null; then
         params="--quiesce $params"
     fi
     if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
