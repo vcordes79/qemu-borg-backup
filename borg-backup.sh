@@ -78,7 +78,7 @@ borg_prune() {
           write_success "$phase" "<pre>$result</pre>" 
       fi
     else
-      write_warning "$phase" "BORG: Compact nicht unterstützt"
+      write_info "$phase" "BORG: Compact nicht unterstützt"
     fi
 }
 
