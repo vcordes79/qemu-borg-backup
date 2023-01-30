@@ -27,7 +27,7 @@ create_snapshot() {
             sleep 10
             numtries=$[numtries+1]
             if [ $numtries -gt 60 ]; then
-                error "Waiting for shutdown failed"
+                echo "Waiting for shutdown failed"
                 return 1
             fi
         done
@@ -37,7 +37,7 @@ create_snapshot() {
             sleep 10
             numtries=$[numtries+1]
             if [ $numtries -gt 60 ]; then
-                error "Waiting for startup failed"
+                echo "Waiting for startup failed"
                 return 1
             fi
         done
