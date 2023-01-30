@@ -17,16 +17,27 @@ create_snapshot() {
         params="--quiesce $params"
     fi
     if ! virsh snapshot-create-as --domain $domain --name borg.qcow2 $params $ds; then
-        if ! virsh reboot --domain $domain --mode agent; then
-            echo "Reboot failed"
+        if ! virsh shutdown --domain $domain 2>&1; then
+            echo "Shutdown failed"
             return 1
         fi
+        sleep 120
+        numtries=0
+        while ! virsh start $domain 2>&1 ; do
+            sleep 10
+            numtries=$[numtries+1]
+            if [ $numtries -gt 60 ]; then
+                error "Waiting for shutdown failed"
+                return 1
+            fi
+        done
+        sleep 120
         numtries=0
         while ! virsh guestinfo --domain $domain --hostname; do
             sleep 10
             numtries=$[numtries+1]
             if [ $numtries -gt 60 ]; then
-                error "Waiting for reboot failed"
+                error "Waiting for startup failed"
                 return 1
             fi
         done
