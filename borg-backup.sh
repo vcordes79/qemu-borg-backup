@@ -240,11 +240,11 @@ if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
     exitCode=$?
     result="<pre>$result</pre>"
     if [ $exitCode -eq 1 ]; then 
-      write_error ""$phase" $container" "<pre>$result</pre>"
+      write_error ""$phase" $repo" "<pre>$result</pre>"
     elif [ $exitCode -eq 2 ]; then 
-      write_warning ""$phase" $container" "<pre>$result</pre>"
+      write_warning ""$phase" $repo" "<pre>$result</pre>"
     else 
-      write_success ""$phase" $container" "<pre>$result</pre>"
+      write_success ""$phase" $repo" "<pre>$result</pre>"
     fi
   done
 fi
