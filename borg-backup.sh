@@ -233,21 +233,22 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
 fi
 
 # Dateibackup
-if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
-  phase="Dateibackup"
-  for repo in ${!BORG_DIRS[@]}; do 
-    result=`borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' ${BORG_DIRS["$repo"]} 2>&1`
-    exitCode=$?
-    result="<pre>$result</pre>"
-    if [ $exitCode -eq 1 ]; then 
-      write_error ""$phase" $repo" "<pre>$result</pre>"
-    elif [ $exitCode -eq 2 ]; then 
-      write_warning ""$phase" $repo" "<pre>$result</pre>"
-    else 
-      write_success ""$phase" $repo" "<pre>$result</pre>"
-    fi
-  done
-fi
+phase="Dateibackup"
+for v in $(env |grep BORG_DIRS); do 
+  v=`echo $v | cut -d\_ -f3`
+  repo=`echo $v | cut -d\= -f1`
+  dirs=`echo $v | cut -d\= -f2`
+  result=`borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1`
+  exitCode=$?
+  result="<pre>$result</pre>"
+  if [ $exitCode -eq 1 ]; then 
+    write_error ""$phase" $repo" "<pre>$result</pre>"
+  elif [ $exitCode -eq 2 ]; then 
+    write_warning ""$phase" $repo" "<pre>$result</pre>"
+  else 
+    write_success ""$phase" $repo" "<pre>$result</pre>"
+  fi
+done
 
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
