@@ -1,6 +1,7 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PATH=$PATH:$SCRIPT_DIR
+export BORG_DIRS_SYSTEM="/usr/local /etc"
 
 write_header() {
   echo "<html><body><table>"
