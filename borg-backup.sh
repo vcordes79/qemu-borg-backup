@@ -54,17 +54,24 @@ borg_prune() {
             fi
         fi
     done
+    OLDIFS=$IFS
+    IFS=$'\n'
+    for v in $(env |grep BORG_DIRS); do 
+      v=`echo $v | cut -d\_ -f3`
+      repo=`echo $v | cut -d\= -f1`
+      if [ $repo != "" ]; then
+        result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        if [ $? -gt 0 ]; then
+          write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
+          write_warning "$phase $repo" "<pre>$result</pre>"
+        else
+          write_success "$phase $repo" "<pre>$result</pre>" 
+        fi
+      fi
+    done
+    IFS=$OLDIFS
     if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
       for repo in ${!BORG_DIRS[@]}; do 
-        if [ $repo != "" ]; then
-          result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
-          if [ $? -gt 0 ]; then
-            write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
-            write_warning "$phase $repo" "<pre>$result</pre>"
-          else
-            write_success "$phase $repo" "<pre>$result</pre>" 
-          fi
-        fi
       done
     fi
 
@@ -234,6 +241,8 @@ fi
 
 # Dateibackup
 phase="Dateibackup"
+OLDIFS=$IFS
+IFS=$'\n'
 for v in $(env |grep BORG_DIRS); do 
   v=`echo $v | cut -d\_ -f3`
   repo=`echo $v | cut -d\= -f1`
@@ -249,6 +258,7 @@ for v in $(env |grep BORG_DIRS); do
     write_success ""$phase" $repo" "<pre>$result</pre>"
   fi
 done
+IFS=$OLDIFS
 
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
