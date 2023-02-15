@@ -71,10 +71,6 @@ borg_prune() {
       fi
     done
     IFS=$OLDIFS
-    if [[ "$(declare -p BORG_DIRS 2>/dev/null)" == "declare -A"* ]]; then
-      for repo in ${!BORG_DIRS[@]}; do 
-      done
-    fi
 
     phase="Speicherplatz freigeben"
     if borg --help |grep compact >/dev/null; then
