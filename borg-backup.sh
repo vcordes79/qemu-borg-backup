@@ -244,6 +244,7 @@ for v in $(env |grep BORG_DIRS); do
   v=`echo $v | cut -d\_ -f3`
   repo=`echo $v | cut -d\= -f1`
   dirs=`echo $v | cut -d\= -f2`
+  write_info ""$phase": <pre>borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs</pre>"
   result=`borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1`
   exitCode=$?
   result="<pre>$result</pre>"
