@@ -203,21 +203,23 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
 fi
 
 # backup VMs
-phase="VM-Backup"
-for domain in $domains; do
-  if [ $domain != "" ]; then
-    result=`qemu-borg-backup.sh $domain 2>&1`
-    exitCode=$?
-    result="<pre>$result</pre>"
-    if [ $exitCode -eq 1 ]; then 
-      write_error ""$phase" $domain" "<pre>$result</pre>"
-    elif [ $exitCode -eq 2 ]; then 
-      write_warning ""$phase" $domain" "<pre>$result</pre>"
-    else 
-      write_success ""$phase" $domain" "<pre>$result</pre>"
+if [ -f /usr/bin/virsh ]; then
+  phase="VM-Backup"
+  for domain in $domains; do
+    if [ $domain != "" ]; then
+      result=`qemu-borg-backup.sh $domain 2>&1`
+      exitCode=$?
+      result="<pre>$result</pre>"
+      if [ $exitCode -eq 1 ]; then 
+        write_error ""$phase" $domain" "<pre>$result</pre>"
+      elif [ $exitCode -eq 2 ]; then 
+        write_warning ""$phase" $domain" "<pre>$result</pre>"
+      else 
+        write_success ""$phase" $domain" "<pre>$result</pre>"
+      fi
     fi
-  fi
-done
+  done
+fi
 
 # backup LXC
 if [ "x$LXC_BACKUP" == "xy" ]; then
