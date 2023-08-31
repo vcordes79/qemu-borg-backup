@@ -150,7 +150,7 @@ if [ "x$BORG_TRIES" == "x" ]; then
 fi
 
 retval=0
-shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g'))
+shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g')
 GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
 mkdir -p $GLOBALSTATUSDIR
 rm $GLOBALSTATUSDIR/*/*.log $GLOBALSTATUSDIR/*.log
