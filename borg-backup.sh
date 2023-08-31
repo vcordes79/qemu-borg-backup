@@ -10,22 +10,22 @@ write_header() {
 write_warning() {
   echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
   retval=2
-  echo "$1: $2" > $STATUSDIR/warning.log
+  echo "$1: $2" >> $STATUSDIR/warning.log
 }
 
 write_info() {
   echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
-  echo "$1: $2" > $STATUSDIR/info.log
+  echo "$1: $2" >> $STATUSDIR/info.log
 }
 
 write_success() {
   echo "<tr style='background-color:lightgreen;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
-  echo "$1: $2" > $STATUSDIR/success.log
+  echo "$1: $2" >> $STATUSDIR/success.log
 }
 
 write_error() {
   echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
-  echo "$1: $2" > $STATUSDIR/error.log
+  echo "$1: $2" >> $STATUSDIR/error.log
 }
 
 do_exit() {
@@ -153,7 +153,9 @@ retval=0
 shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g'))
 GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
 mkdir -p $GLOBALSTATUSDIR
-rm $GLOBALSTATUSDIR/*/*.log
+rm $GLOBALSTATUSDIR/*/*.log $GLOBALSTATUSDIR/*.log
+
+STATUSDIR=$GLOBALSTATUSDIR
 
 write_header
 
@@ -275,6 +277,8 @@ for v in $(env |grep BORG_DIRS); do
   fi
 done
 IFS=$OLDIFS
+
+STATUSDIR=$GLOBALSTATUSDIR
 
 # prune
 if [ "x$PRUNE_FIRST" == "x" ]; then
