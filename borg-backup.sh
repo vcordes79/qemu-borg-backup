@@ -10,18 +10,22 @@ write_header() {
 write_warning() {
   echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
   retval=2
+  echo "$1: $2" > $STATUSDIR/warning.log
 }
 
 write_info() {
   echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "$1: $2" > $STATUSDIR/info.log
 }
 
 write_success() {
   echo "<tr style='background-color:lightgreen;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "$1: $2" > $STATUSDIR/success.log
 }
 
 write_error() {
   echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "$1: $2" > $STATUSDIR/error.log
 }
 
 do_exit() {
@@ -146,6 +150,10 @@ if [ "x$BORG_TRIES" == "x" ]; then
 fi
 
 retval=0
+shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g'))
+GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
+mkdir -p $GLOBALSTATUSDIR
+rm $GLOBALSTATUSDIR/*/*.log
 
 write_header
 
@@ -206,6 +214,8 @@ fi
 phase="VM-Backup"
 for domain in $domains; do
   if [ $domain != "" ]; then
+    STATUSDIR=$GLOBALSTATUSDIR/$domain
+    mkdir $STATUSDIR
     result=`qemu-borg-backup.sh $domain 2>&1`
     exitCode=$?
     result="<pre>$result</pre>"
@@ -223,6 +233,8 @@ done
 if [ "x$LXC_BACKUP" == "xy" ]; then
   phase="LXC-Backup"
   for container in $LXC_CONTAINERS; do
+    STATUSDIR=$GLOBALSTATUSDIR/$container
+    mkdir $STATUSDIR
     result=`lxc-borg-backup.sh $container 2>&1`
     exitCode=$?
     result="<pre>$result</pre>"
@@ -244,6 +256,8 @@ for v in $(env |grep BORG_DIRS); do
   v=`echo $v | cut -d\_ -f3`
   repo=`echo $v | cut -d\= -f1`
   dirs=`echo $v | cut -d\= -f2`
+  STATUSDIR=$GLOBALSTATUSDIR/$repo
+  mkdir $STATUSDIR
   write_info ""$phase": <pre>borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs</pre>"
   IFS=$OLDIFS
   result=$(borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1)
