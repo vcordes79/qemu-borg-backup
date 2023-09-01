@@ -152,7 +152,7 @@ fi
 retval=0
 shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|@|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g')
 GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
-rm -rf $GLOBALSTATUSDIR/*\@*
+rm -rf /var/spool/borgbackup/*\@*
 mkdir -p $GLOBALSTATUSDIR
 
 STATUSDIR=$GLOBALSTATUSDIR
