@@ -289,6 +289,8 @@ if [ "x$PRUNE_FIRST" == "x" ]; then
   borg_prune
 fi
 
+borg info $BORG_REPO > $STATUSDIR/info
+
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
   umount $MOUNTPOINT
 fi
