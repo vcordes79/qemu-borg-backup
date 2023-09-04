@@ -133,7 +133,11 @@ fi
 
 # domain / container settings
 if [ "x$DEFAULT_DOMAINS" == "x" ]; then
-  export DEFAULT_DOMAINS="pfsense"
+  if virsh list --all |grep pfsense; then
+    export DEFAULT_DOMAINS="pfsense"
+  else
+    export DEFAULT_DOMAINS=""
+  fi
 fi
 if [ $# -eq 0 ]; then
     export domains=$DEFAULT_DOMAINS
