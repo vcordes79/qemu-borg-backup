@@ -153,7 +153,9 @@ retval=0
 shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|@|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g')
 GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
 rm -rf /var/spool/borgbackup/*\@*
-mkdir -p $GLOBALSTATUSDIR
+if [ ! -d $GLOBALSTATUSDIR ]; then
+  mkdir -p $GLOBALSTATUSDIR
+fi
 
 STATUSDIR=$GLOBALSTATUSDIR
 touch $STATUSDIR/timestamp
@@ -219,7 +221,9 @@ if [ -f /usr/bin/virsh ]; then
   for domain in $domains; do
     if [ $domain != "" ]; then
       STATUSDIR=$GLOBALSTATUSDIR/$domain
-      mkdir $STATUSDIR
+      if [ ! -d $STATUSDIR ]; then
+        mkdir $STATUSDIR
+      fi
       touch $STATUSDIR/timestamp
       result=`qemu-borg-backup.sh $domain 2>&1`
       exitCode=$?
@@ -240,7 +244,9 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
   phase="LXC-Backup"
   for container in $LXC_CONTAINERS; do
     STATUSDIR=$GLOBALSTATUSDIR/$container
-    mkdir $STATUSDIR
+    if [ ! -d $STATUSDIR ]; then
+      mkdir $STATUSDIR
+    fi
     touch $STATUSDIR/timestamp
     result=`lxc-borg-backup.sh $container 2>&1`
     exitCode=$?
@@ -264,7 +270,9 @@ for v in $(env |grep BORG_DIRS); do
   repo=`echo $v | cut -d\= -f1`
   dirs=`echo $v | cut -d\= -f2`
   STATUSDIR=$GLOBALSTATUSDIR/$repo
-  mkdir $STATUSDIR
+  if [ ! -d $STATUSDIR ]; then
+    mkdir $STATUSDIR
+  fi
   touch $STATUSDIR/timestamp
   write_info ""$phase": <pre>borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs</pre>"
   IFS=$OLDIFS
