@@ -8,23 +8,23 @@ write_header() {
 }
 
 write_warning() {
-  echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
   retval=2
   echo "$1: $2" >> $STATUSDIR/warning.log
 }
 
 write_info() {
-  echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
   echo "$1: $2" >> $STATUSDIR/info.log
 }
 
 write_success() {
-  echo "<tr style='background-color:lightgreen;color:black'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "<tr style='background-color:lightgreen;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
   echo "$1: $2" >> $STATUSDIR/success.log
 }
 
 write_error() {
-  echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td>$2</td></tr>";
+  echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
   echo "$1: $2" >> $STATUSDIR/error.log
 }
 
@@ -41,9 +41,9 @@ borg_prune() {
           result=`borg prune -v --list -P $container --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
           if [ $? -gt 0 ]; then
             write_warning "$phase $container" "Backups für $container konnten nicht aufgeräumt werden"
-            write_warning "$phase $container" "<pre>$result</pre>"
+            write_warning "$phase $container" "$result"
           else
-            write_success "$phase $container" "<pre>$result</pre>" 
+            write_success "$phase $container" "$result" 
           fi
         fi
       done
@@ -53,9 +53,9 @@ borg_prune() {
             result=`borg prune -v --list -P $domain --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
             if [ $? -gt 0 ]; then
                 write_warning "$phase $domain" "Backups für $domain konnten nicht aufgeräumt werden"
-                write_warning "$phase $domain" "<pre>$result</pre>"
+                write_warning "$phase $domain" "$result"
             else
-                write_success "$phase $domain" "<pre>$result</pre>" 
+                write_success "$phase $domain" "$result" 
             fi
         fi
     done
@@ -68,9 +68,9 @@ borg_prune() {
         result=`borg prune -v --list -P $repo --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
         if [ $? -gt 0 ]; then
           write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
-          write_warning "$phase $repo" "<pre>$result</pre>"
+          write_warning "$phase $repo" "$result"
         else
-          write_success "$phase $repo" "<pre>$result</pre>" 
+          write_success "$phase $repo" "$result" 
         fi
       fi
     done
@@ -81,9 +81,9 @@ borg_prune() {
       result=`borg compact -v 2>&1`
       if [ $? -gt 0 ]; then
           write_warning "$phase" "Repository konnte nicht komprimiert werden"
-          write_warning "$phase" "<pre>$result</pre>"
+          write_warning "$phase" "$result"
       else
-          write_success "$phase" "<pre>$result</pre>" 
+          write_success "$phase" "$result" 
       fi
     else
       write_info "$phase" "BORG: Compact nicht unterstützt"
@@ -229,15 +229,15 @@ if [ -f /usr/bin/virsh ]; then
         mkdir $STATUSDIR
       fi
       touch $STATUSDIR/timestamp
+      rm $STATUSDIR/*.log
       result=`qemu-borg-backup.sh $domain 2>&1`
       exitCode=$?
-      result="<pre>$result</pre>"
       if [ $exitCode -eq 1 ]; then 
-        write_error ""$phase" $domain" "<pre>$result</pre>"
+        write_error ""$phase" $domain" "$result"
       elif [ $exitCode -eq 2 ]; then 
-        write_warning ""$phase" $domain" "<pre>$result</pre>"
+        write_warning ""$phase" $domain" "$result"
       else 
-        write_success ""$phase" $domain" "<pre>$result</pre>"
+        write_success ""$phase" $domain" "$result"
       fi
     fi
   done
@@ -252,15 +252,15 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
       mkdir $STATUSDIR
     fi
     touch $STATUSDIR/timestamp
+    rm $STATUSDIR/*.log
     result=`lxc-borg-backup.sh $container 2>&1`
     exitCode=$?
-    result="<pre>$result</pre>"
     if [ $exitCode -eq 1 ]; then 
-      write_error ""$phase" $container" "<pre>$result</pre>"
+      write_error ""$phase" $container" "$result"
     elif [ $exitCode -eq 2 ]; then 
-      write_warning ""$phase" $container" "<pre>$result</pre>"
+      write_warning ""$phase" $container" "$result"
     else 
-      write_success ""$phase" $container" "<pre>$result</pre>"
+      write_success ""$phase" $container" "$result"
     fi
   done
 fi
@@ -278,18 +278,17 @@ for v in $(env |grep BORG_DIRS); do
     mkdir $STATUSDIR
   fi
   touch $STATUSDIR/timestamp
-  write_info ""$phase": <pre>borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs</pre>"
+  rm $STATUSDIR/*.log
   IFS=$OLDIFS
   result=$(borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1)
   IFS=$'\n'
   exitCode=$?
-  result="<pre>$result</pre>"
   if [ $exitCode -eq 1 ]; then 
-    write_error ""$phase" $repo" "<pre>$result</pre>"
+    write_error ""$phase" $repo" "$result"
   elif [ $exitCode -eq 2 ]; then 
-    write_warning ""$phase" $repo" "<pre>$result</pre>"
+    write_warning ""$phase" $repo" "$result"
   else 
-    write_success ""$phase" $repo" "<pre>$result</pre>"
+    write_success ""$phase" $repo" "$result"
   fi
 done
 IFS=$OLDIFS
