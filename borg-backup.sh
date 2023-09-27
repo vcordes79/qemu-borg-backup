@@ -163,6 +163,7 @@ fi
 
 STATUSDIR=$GLOBALSTATUSDIR
 touch $STATUSDIR/timestamp
+rm $STATUSDIR/*.log
 
 write_header
 
