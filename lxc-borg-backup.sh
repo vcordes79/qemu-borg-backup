@@ -14,7 +14,7 @@ lxc_backup_dir="$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup"
 
 if ! lxc snapshot "$container" borgbackup; then
   echo "Error creating container snapshot"
-  lxc_backup_dir="$LXC_STORAGE_PATH/containers/$container/borgbackup"
+  lxc_backup_dir="$LXC_STORAGE_PATH/containers/$container"
   retval=1
 fi
 
