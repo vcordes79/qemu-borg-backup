@@ -282,8 +282,8 @@ for v in $(env |grep BORG_DIRS); do
   rm $STATUSDIR/*.log
   IFS=$OLDIFS
   result=$(borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1)
-  IFS=$'\n'
   exitCode=$?
+  IFS=$'\n'
   if [ $exitCode -eq 1 ]; then 
     write_error ""$phase" $repo" "$result"
   elif [ $exitCode -eq 2 ]; then 
