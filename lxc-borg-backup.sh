@@ -29,7 +29,7 @@ fi
 if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
   if ! lxc delete "$container/borgbackup"; then
     echo "Error removing snapshot"
-    retval=1
+    retval=2
   fi
 fi
 
