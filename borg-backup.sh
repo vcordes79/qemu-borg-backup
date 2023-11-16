@@ -162,7 +162,6 @@ if [ ! -d $GLOBALSTATUSDIR ]; then
 fi
 
 STATUSDIR=$GLOBALSTATUSDIR
-touch $STATUSDIR/timestamp
 rm $STATUSDIR/*.log
 
 write_header
@@ -231,7 +230,6 @@ if [ -f /usr/bin/virsh ]; then
       if [ ! -d $STATUSDIR ]; then
         mkdir $STATUSDIR
       fi
-      touch $STATUSDIR/timestamp
       touch $STATUSDIR/running
       rm $STATUSDIR/*.log
       result=`qemu-borg-backup.sh $domain 2>&1`
@@ -242,6 +240,7 @@ if [ -f /usr/bin/virsh ]; then
       elif [ $exitCode -eq 2 ]; then 
         write_warning ""$phase" $domain" "$result"
       else 
+        touch $STATUSDIR/timestamp
         write_success ""$phase" $domain" "$result"
       fi
     fi
@@ -256,7 +255,6 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
     if [ ! -d $STATUSDIR ]; then
       mkdir $STATUSDIR
     fi
-    touch $STATUSDIR/timestamp
     rm $STATUSDIR/*.log
     touch $STATUSDIR/running
     result=`lxc-borg-backup.sh $container 2>&1`
@@ -267,6 +265,7 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
     elif [ $exitCode -eq 2 ]; then 
       write_warning ""$phase" $container" "$result"
     else 
+      touch $STATUSDIR/timestamp
       write_success ""$phase" $container" "$result"
     fi
   done
@@ -284,7 +283,6 @@ for v in $(env |grep BORG_DIRS); do
   if [ ! -d $STATUSDIR ]; then
     mkdir $STATUSDIR
   fi
-  touch $STATUSDIR/timestamp
   rm $STATUSDIR/*.log
   touch $STATUSDIR/running
   IFS=$OLDIFS
@@ -297,6 +295,7 @@ for v in $(env |grep BORG_DIRS); do
   elif [ $exitCode -eq 2 ]; then 
     write_warning ""$phase" $repo" "$result"
   else 
+    touch $STATUSDIR/timestamp
     write_success ""$phase" $repo" "$result"
   fi
 done
@@ -316,6 +315,7 @@ if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
 fi
 
 if [ $retfal -eq 0 ]; then
+  touch $STATUSDIR/timestamp
   write_success "backup" "erfolgreich"
 fi
 
