@@ -216,6 +216,8 @@ elif [ "x" != "x$NFS_PATH" ]; then
     fi
 fi
 
+touch $STATUSDIR/running
+
 if [ "x$PRUNE_FIRST" != "x" ]; then
   borg_prune
 fi
@@ -316,5 +318,7 @@ fi
 if [ $retfal -eq 0 ]; then
   write_success "backup" "erfolgreich"
 fi
+
+rm $STATUSDIR/running
 
 do_exit $retval
