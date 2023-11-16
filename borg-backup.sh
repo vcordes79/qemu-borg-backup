@@ -230,9 +230,11 @@ if [ -f /usr/bin/virsh ]; then
         mkdir $STATUSDIR
       fi
       touch $STATUSDIR/timestamp
+      touch $STATUSDIR/running
       rm $STATUSDIR/*.log
       result=`qemu-borg-backup.sh $domain 2>&1`
       exitCode=$?
+      rm $STATUSDIR/running
       if [ $exitCode -eq 1 ]; then 
         write_error ""$phase" $domain" "$result"
       elif [ $exitCode -eq 2 ]; then 
@@ -254,8 +256,10 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
     fi
     touch $STATUSDIR/timestamp
     rm $STATUSDIR/*.log
+    touch $STATUSDIR/running
     result=`lxc-borg-backup.sh $container 2>&1`
     exitCode=$?
+    rm $STATUSDIR/running
     if [ $exitCode -eq 1 ]; then 
       write_error ""$phase" $container" "$result"
     elif [ $exitCode -eq 2 ]; then 
@@ -280,10 +284,12 @@ for v in $(env |grep BORG_DIRS); do
   fi
   touch $STATUSDIR/timestamp
   rm $STATUSDIR/*.log
+  touch $STATUSDIR/running
   IFS=$OLDIFS
   result=$(borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1)
   exitCode=$?
   IFS=$'\n'
+  rm $STATUSDIR/running
   if [ $exitCode -eq 1 ]; then 
     write_error ""$phase" $repo" "$result"
   elif [ $exitCode -eq 2 ]; then 
