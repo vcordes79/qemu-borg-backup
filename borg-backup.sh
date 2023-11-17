@@ -147,7 +147,7 @@ fi
 
 # other settings
 if [ "x$BORG_EXCLUDE" == "x" ]; then
-  export BORG_EXCLUDE="--exclude  're:/.btrfs(/|$)' --exclude 're:/.snapshots(/|$)'"
+  export BORG_EXCLUDE="--exclude 're:/\.(btrfs|snapshots)[/$]'"
 fi
 if [ "x$BORG_TRIES" == "x" ]; then 
   export BORG_TRIES=5
