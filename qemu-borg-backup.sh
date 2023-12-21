@@ -113,7 +113,7 @@ if [ "$domain" != "" ]; then
 
     export myimages=$(trim $myimages)
     echo "Creating backup with borg of $myimages"
-    numtries=0
+    numtries=1
     while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do 
         sleep 60; 
         numtries=$[numtries+1]

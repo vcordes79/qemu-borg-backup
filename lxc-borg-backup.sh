@@ -21,10 +21,17 @@ fi
 if [ "x$LXC_STOP_MYSQL" != "x" ]; then
   lxc exec "$container" -- service mysql start
 fi
-if ! borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$lxc_backup_dir" 2>&1; then
-  echo "Error creating backup"
-  retval=1
-fi
+
+numtries=1
+while ! borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$lxc_backup_dir" 2>&1; do
+  sleep 60; 
+  numtries=$[numtries+1]
+  if [ $numtries -gt $BORG_TRIES ]; then
+    echo "Error creating backup"
+    retval=1
+    break
+  fi
+done
 
 if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
   if ! lxc delete "$container/borgbackup"; then
