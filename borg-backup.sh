@@ -314,7 +314,7 @@ if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
   umount $MOUNTPOINT
 fi
 
-if [ $retfal -eq 0 ]; then
+if [ $retval -eq 0 ]; then
   touch $STATUSDIR/timestamp
   write_success "backup" "erfolgreich"
 fi
