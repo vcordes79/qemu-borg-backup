@@ -35,8 +35,13 @@ done
 
 if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
   if ! lxc delete "$container/borgbackup"; then
-    echo "Error removing snapshot"
-    retval=2
+    cd $LXC_STORAGE_PATH
+    for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | cut -d ' ' -f 9 | sort -r); do btrfs property set -ts "$i" ro false; done
+    for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | cut -d ' ' -f 9 | sort -r); do btrfs subvolume delete "$i"; done
+    if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
+      echo "Error removing snapshot"
+      retval=2
+    fi
   fi
 fi
 
