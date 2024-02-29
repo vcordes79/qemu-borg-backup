@@ -35,7 +35,7 @@ done
 
 if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
   if ! lxc delete "$container/borgbackup"; then
-    cd $LXC_STORAGE_PATH
+    cd "$LXC_STORAGE_PATH"
     for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | cut -d ' ' -f 9 | sort -r); do btrfs property set -ts "$i" ro false; done
     for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | cut -d ' ' -f 9 | sort -r); do btrfs subvolume delete "$i"; done
     if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
