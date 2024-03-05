@@ -22,6 +22,14 @@ if [ "x$LXC_STOP_MYSQL" != "x" ]; then
   lxc exec "$container" -- service mysql start
 fi
 
+if [ -d "$LXC_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; then
+  cd "$LXC_STORAGE_PATH"
+  for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | grep "/.btrfs" | cut -d ' ' -f 9 | sort -r); do btrfs property set -ts "$i" ro false; done
+  for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | grep "/.btrfs" | cut -d ' ' -f 9 | sort -r); do btrfs subvolume delete "$i"; done
+  for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | grep "/.snapshots" | cut -d ' ' -f 9 | sort -r); do btrfs property set -ts "$i" ro false; done
+  for i in $(btrfs subvolume list . |grep "containers-snapshots/$container/borgbackup" | grep "/.snapshots" | cut -d ' ' -f 9 | sort -r); do btrfs subvolume delete "$i"; done
+fi
+
 numtries=1
 while ! borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$lxc_backup_dir" 2>&1; do
   sleep 60; 
