@@ -126,6 +126,9 @@ if [ "$domain" != "" ]; then
 
     # blockcommit
     blockcommit $domain
+
+    # set time
+    virsh domtime $domain --now
 fi
 
 exit 0
