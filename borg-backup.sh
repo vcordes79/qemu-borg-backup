@@ -38,7 +38,7 @@ borg_prune() {
     if [ "x$LXC_BACKUP" == "xy" ]; then
       for container in $LXC_CONTAINERS; do
         if [ $container != "" ]; then
-          result=`borg prune -v --list -P $container- --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+          result=`borg prune -v --list -P $container-2 --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
           if [ $? -gt 0 ]; then
             write_warning "$phase $container" "Backups für $container konnten nicht aufgeräumt werden"
             write_warning "$phase $container" "$result"
@@ -50,7 +50,7 @@ borg_prune() {
     fi
     for domain in $domains; do
         if [ $domain != "" ]; then
-            result=`borg prune -v --list -P $domain- --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+            result=`borg prune -v --list -P $domain-2 --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
             if [ $? -gt 0 ]; then
                 write_warning "$phase $domain" "Backups für $domain konnten nicht aufgeräumt werden"
                 write_warning "$phase $domain" "$result"
@@ -65,7 +65,7 @@ borg_prune() {
       v=`echo $v | cut -d\_ -f3`
       repo=`echo $v | cut -d\= -f1`
       if [ $repo != "" ]; then
-        result=`borg prune -v --list -P $repo- --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        result=`borg prune -v --list -P $repo-2 --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
         if [ $? -gt 0 ]; then
           write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
           write_warning "$phase $repo" "$result"
