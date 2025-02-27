@@ -97,7 +97,7 @@ if [ "$domain" != "" ]; then
 
     d=$(echo $domain | tr "[:upper:]" "[:lower:]")
     params="--no-metadata --atomic --disk-only"
-    if [ "$d" != "pfsense" ]; then
+    if [ "$d" != "pfsense" -a "$d" != "opnsense" ]; then
         echo "Sending TRIM command to $domain"
         virsh domfstrim $domain
         # wait a minute to trim
