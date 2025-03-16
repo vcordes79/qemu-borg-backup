@@ -215,6 +215,12 @@ elif [ "x" != "x$NFS_PATH" ]; then
     fi
 fi
 
+if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
+  if borg list 2>&1 | grep lock.exclusive; then
+    borg break-lock
+  fi
+fi
+
 touch $STATUSDIR/running
 
 if [ "x$PRUNE_FIRST" != "x" ]; then
