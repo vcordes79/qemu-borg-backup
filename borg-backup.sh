@@ -3,6 +3,11 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PATH=$PATH:$SCRIPT_DIR:/snap/bin
 export BORG_DIRS_SYSTEM="/usr/local /etc"
 
+if find /var/spool/borgbackup |grep borg.fdatek.de >/dev/null; then
+  rm -rf /var/spool/borgbackup/*your-storagebox.de* 
+fi
+
+
 write_header() {
   echo "<html><body><table>"
 }
