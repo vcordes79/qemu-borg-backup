@@ -115,7 +115,12 @@ if [ "$domain" != "" ]; then
     echo "Creating backup with borg of $myimages"
     numtries=1
     while ! borg create -v -C zstd --stats $BORG_REPO::$domain-'{now}' $myimages 2>&1; do 
-        sleep 60; 
+        if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
+            if borg list 2>&1 | grep lock.exclusive; then
+                borg break-lock
+            fi
+        fi
+        sleep 60;
         numtries=$[numtries+1]
         if [ $numtries -gt $BORG_TRIES ]; then
             echo "error creating backup"

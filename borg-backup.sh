@@ -39,6 +39,11 @@ do_exit() {
 }
 
 borg_prune() {
+    if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
+        if borg list 2>&1 | grep lock.exclusive; then
+            borg break-lock
+        fi
+    fi
     phase="alte Backups löschen"
     if [ "x$LXC_BACKUP" == "xy" ]; then
       for container in $LXC_CONTAINERS; do
@@ -280,6 +285,12 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
       write_success ""$phase" $container" "$result"
     fi
   done
+fi
+
+if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
+    if borg list 2>&1 | grep lock.exclusive; then
+        borg break-lock
+    fi
 fi
 
 # Dateibackup

@@ -32,6 +32,11 @@ fi
 
 numtries=1
 while ! borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$container-'{now}' "$lxc_backup_dir" 2>&1; do
+  if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
+      if borg list 2>&1 | grep lock.exclusive; then
+          borg break-lock
+      fi
+  fi
   sleep 60; 
   numtries=$[numtries+1]
   if [ $numtries -gt $BORG_TRIES ]; then
