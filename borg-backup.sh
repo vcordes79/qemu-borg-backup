@@ -160,7 +160,7 @@ if [ "x$BORG_EXCLUDE" == "x" ]; then
   export BORG_EXCLUDE="--exclude '*/.btrfs' --exclude '*/.snapshots'"
 fi
 if [ "x$BORG_TRIES" == "x" ]; then 
-  export BORG_TRIES=5
+  export BORG_TRIES=20
 fi
 
 retval=0
