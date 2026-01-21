@@ -24,9 +24,9 @@ create_snapshot() {
         sleep 120
         numtries=0
         while ! virsh start $domain 2>&1 ; do
-            sleep 10
+            sleep 120
             numtries=$[numtries+1]
-            if [ $numtries -gt 60 ]; then
+            if [ $numtries -gt 25 ]; then
                 echo "Waiting for shutdown failed"
                 return 1
             fi
@@ -34,9 +34,9 @@ create_snapshot() {
         sleep 120
         numtries=0
         while ! virsh guestinfo --domain $domain --hostname; do
-            sleep 10
+            sleep 120
             numtries=$[numtries+1]
-            if [ $numtries -gt 60 ]; then
+            if [ $numtries -gt 25 ]; then
                 echo "Waiting for startup failed"
                 return 1
             fi
