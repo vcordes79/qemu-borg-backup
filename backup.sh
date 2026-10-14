@@ -63,12 +63,12 @@ each_borg_dirs() {
 
 note_result() {
     local title=$1 body=$2 code=$3
-    if [ "$code" -eq 1 ]; then
-        write_error "$title" "$body"
+    if [ "$code" -eq 0 ]; then
+        write_success "$title" "$body"
     elif [ "$code" -eq 2 ]; then
         write_warning "$title" "$body"
     else
-        write_success "$title" "$body"
+        write_error "$title" "$body"
     fi
 }
 
@@ -112,7 +112,7 @@ apply_child_result() {
     for tool in borg restic; do
         [ -v "code[$tool]" ] || continue
         note_result "$phase_name $target $tool" "${body[$tool]}" "${code[$tool]}"
-        if [ "${code[$tool]}" -ne 0 ]; then
+        if [ "${code[$tool]}" != "0" ]; then
             all_ok=0
         fi
     done
@@ -257,7 +257,13 @@ if [ "x$LXC_BACKUP" == "x" ]; then
 fi
 if [ "x$LXC_BACKUP" == "xy" ]; then
   if [ "x$LXC_CONTAINERS" == "x" ]; then
-    export LXC_CONTAINERS=$(lxc list --format=csv -c n)
+    if command -v lxc >/dev/null 2>&1; then
+      if LXC_CONTAINERS=$(lxc list --format=csv -c n); then
+        export LXC_CONTAINERS
+      else
+        lxc_list_failed=1
+      fi
+    fi
   fi
   if [ "x$LXC_STOP_MYSQL" == "x" ]; then
     export LXC_STOP_MYSQL=
@@ -268,12 +274,16 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
 fi
 
 # domain / container settings
-if [ "x$DEFAULT_DOMAINS" == "x" ]; then
+if [ "x$DEFAULT_DOMAINS" == "x" ] && [ -x /usr/bin/virsh ]; then
   if [ "x$BACKUP_SHUTOFF" == "xy" ]; then
-    export DEFAULT_DOMAINS=$(/usr/bin/virsh list --all --name | tr '\n' ' ')
+    DEFAULT_DOMAINS=$(set -o pipefail; /usr/bin/virsh list --all --name | tr '\n' ' ')
   else
-    export DEFAULT_DOMAINS=$(/usr/bin/virsh list --name | tr '\n' ' ')
+    DEFAULT_DOMAINS=$(set -o pipefail; /usr/bin/virsh list --name | tr '\n' ' ')
   fi
+  if [ $? -ne 0 ]; then
+    virsh_list_failed=1
+  fi
+  export DEFAULT_DOMAINS
 fi
 if [ $# -eq 0 ]; then
     export domains=$DEFAULT_DOMAINS
@@ -334,6 +344,14 @@ if [ "$BACKUP_RESTIC" = "y" ]; then
 fi
 if ! apply_ssh_key; then
   write_error "$phase" "$ssh_key_error"
+  do_exit 1
+fi
+if [ -n "$virsh_list_failed" ]; then
+  write_error "$phase" "VM-Liste konnte nicht gelesen werden"
+  do_exit 1
+fi
+if [ -n "$lxc_list_failed" ]; then
+  write_error "$phase" "Container-Liste konnte nicht gelesen werden"
   do_exit 1
 fi
 
@@ -404,7 +422,7 @@ if [ "x$PRUNE_FIRST" != "x" ]; then
 fi
 
 # backup VMs
-if [ -f /usr/bin/virsh ]; then
+if [ -x /usr/bin/virsh ]; then
   phase="VM-Backup"
   for domain in $domains; do
     if [ -n "$domain" ]; then

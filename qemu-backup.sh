@@ -151,7 +151,7 @@ if [[ -n "$domain" ]]; then
         exit 1
     fi
     trap remove_ssh_wrapper EXIT
-    if ! virsh list --all | grep -F "$domain" >/dev/null; then
+    if ! virsh list --all --name | grep -Fxq -- "$domain"; then
         echo "error: VM nicht gefunden"
         exit 1
     fi
