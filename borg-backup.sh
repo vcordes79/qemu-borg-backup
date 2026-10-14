@@ -14,8 +14,8 @@ write_header() {
 
 write_warning() {
   echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
-  retval=2
-  echo "$1: $2" >> $STATUSDIR/warning.log
+  [[ "${retval:-0}" -eq 0 ]] && retval=2
+  echo "$1: $2" >> "$STATUSDIR/warning.log"
 }
 
 write_info() {
@@ -30,7 +30,8 @@ write_success() {
 
 write_error() {
   echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
-  echo "$1: $2" >> $STATUSDIR/error.log
+  retval=1
+  echo "$1: $2" >> "$STATUSDIR/error.log"
 }
 
 do_exit() {
@@ -38,17 +39,29 @@ do_exit() {
   exit $1
 }
 
-borg_prune() {
+archive_glob() {
+    printf '%s-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]*' "$1"
+}
+
+maybe_break_lock() {
     if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
         if borg list 2>&1 | grep lock.exclusive; then
-            borg break-lock
+            if pidof borg >/dev/null; then
+                echo "warning: Borg-Prozess läuft, Sperre bleibt bestehen"
+            else
+                borg break-lock
+            fi
         fi
     fi
+}
+
+borg_prune() {
+    maybe_break_lock
     phase="alte Backups löschen"
     if [ "x$LXC_BACKUP" == "xy" ]; then
       for container in $LXC_CONTAINERS; do
         if [ $container != "" ]; then
-          result=`borg prune -v --list -P $container-2 --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+          result=$(borg prune -v --list --glob-archives "$(archive_glob "$container")" --keep-daily="$KEEP_DAILY" --keep-weekly="$KEEP_WEEKLY" --keep-monthly="$KEEP_MONTHLY" "$BORG_REPO" 2>&1)
           if [ $? -gt 0 ]; then
             write_warning "$phase $container" "Backups für $container konnten nicht aufgeräumt werden"
             write_warning "$phase $container" "$result"
@@ -60,7 +73,7 @@ borg_prune() {
     fi
     for domain in $domains; do
         if [ $domain != "" ]; then
-            result=`borg prune -v --list -P $domain-2 --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+            result=$(borg prune -v --list --glob-archives "$(archive_glob "$domain")" --keep-daily="$KEEP_DAILY" --keep-weekly="$KEEP_WEEKLY" --keep-monthly="$KEEP_MONTHLY" "$BORG_REPO" 2>&1)
             if [ $? -gt 0 ]; then
                 write_warning "$phase $domain" "Backups für $domain konnten nicht aufgeräumt werden"
                 write_warning "$phase $domain" "$result"
@@ -75,7 +88,7 @@ borg_prune() {
       v=`echo $v | cut -d\_ -f3`
       repo=`echo $v | cut -d\= -f1`
       if [ $repo != "" ]; then
-        result=`borg prune -v --list -P $repo-2 --keep-daily=$KEEP_DAILY --keep-weekly=$KEEP_WEEKLY --keep-monthly=$KEEP_MONTHLY $BORG_REPO 2>&1`
+        result=$(borg prune -v --list --glob-archives "$(archive_glob "$repo")" --keep-daily="$KEEP_DAILY" --keep-weekly="$KEEP_WEEKLY" --keep-monthly="$KEEP_MONTHLY" "$BORG_REPO" 2>&1)
         if [ $? -gt 0 ]; then
           write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
           write_warning "$phase $repo" "$result"
@@ -221,11 +234,7 @@ elif [ "x" != "x$NFS_PATH" ]; then
     fi
 fi
 
-if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
-  if borg list 2>&1 | grep lock.exclusive; then
-    borg break-lock
-  fi
-fi
+maybe_break_lock
 
 touch $STATUSDIR/running
 
@@ -283,11 +292,7 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
   done
 fi
 
-if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
-    if borg list 2>&1 | grep lock.exclusive; then
-        borg break-lock
-    fi
-fi
+maybe_break_lock
 
 # Dateibackup
 phase="Dateibackup"
