@@ -16,6 +16,16 @@ fi
 
 snapshot_prefix="containers-snapshots/${container}/borgbackup"
 
+load_borg_excludes() {
+    if [ -z "$BORG_EXCLUDE" ]; then
+        borg_excludes=(--exclude '*/.btrfs' --exclude '*/.snapshots')
+    else
+        set -f
+        read -r -a borg_excludes <<< "$BORG_EXCLUDE"
+        set +f
+    fi
+}
+
 maybe_break_lock() {
     if [ "x$BORG_BREAK_LOCK" == "x" -o "x$BORG_BREAK_LOCK" == "xy" ]; then
         if borg list 2>&1 | grep lock.exclusive; then
@@ -82,7 +92,8 @@ if [ -d "$CONTAINER_STORAGE_PATH/containers-snapshots/$container/borgbackup" ]; 
 fi
 
 numtries=1
-while ! borg create -v -C zstd --stats $BORG_EXCLUDE "$BORG_REPO::$container-{now}" "$lxc_backup_dir" 2>&1; do
+load_borg_excludes
+while ! borg create -v -C zstd --stats "${borg_excludes[@]}" "$BORG_REPO::$container-{now}" "$lxc_backup_dir" 2>&1; do
     maybe_break_lock
     sleep 60
     numtries=$((numtries + 1))

@@ -3,33 +3,36 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PATH=$PATH:$SCRIPT_DIR:/snap/bin
 export BORG_DIRS_SYSTEM="/usr/local /etc"
 
-if find /var/spool/borgbackup |grep borg.fdatek.de >/dev/null; then
-  rm -rf /var/spool/borgbackup/*your-storagebox.de* 
-fi
-
+html_escape() {
+  local s=$1
+  s=${s//&/\&amp;}
+  s=${s//</\&lt;}
+  s=${s//>/\&gt;}
+  printf '%s' "$s"
+}
 
 write_header() {
   echo "<html><body><table>"
 }
 
 write_warning() {
-  echo "<tr style='background-color:yellow;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
+  echo "<tr style='background-color:yellow;color:black'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
   [[ "${retval:-0}" -eq 0 ]] && retval=2
   echo "$1: $2" >> "$STATUSDIR/warning.log"
 }
 
 write_info() {
-  echo "<tr style='background-color:lightblue;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
-  echo "$1: $2" >> $STATUSDIR/info.log
+  echo "<tr style='background-color:lightblue;color:black'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
+  echo "$1: $2" >> "$STATUSDIR/info.log"
 }
 
 write_success() {
-  echo "<tr style='background-color:lightgreen;color:black'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
-  echo "$1: $2" >> $STATUSDIR/success.log
+  echo "<tr style='background-color:lightgreen;color:black'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
+  echo "$1: $2" >> "$STATUSDIR/success.log"
 }
 
 write_error() {
-  echo "<tr style='background-color:red;color:white'><th>$1</th></tr><tr><td><pre>$2</pre></td></tr>";
+  echo "<tr style='background-color:red;color:white'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
   retval=1
   echo "$1: $2" >> "$STATUSDIR/error.log"
 }
@@ -41,6 +44,39 @@ do_exit() {
 
 archive_glob() {
     printf '%s-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]*' "$1"
+}
+
+each_borg_dirs() {
+    local line name dirs
+    while IFS= read -r line; do
+        [[ "$line" == BORG_DIRS_*=* ]] || continue
+        name=${line%%=*}
+        name=${name#BORG_DIRS_}
+        dirs=${line#*=}
+        [[ -n "$name" ]] || continue
+        "$@" "$name" "$dirs"
+    done < <(env)
+}
+
+load_borg_excludes() {
+    if [ -z "$BORG_EXCLUDE" ]; then
+        borg_excludes=(--exclude '*/.btrfs' --exclude '*/.snapshots')
+    else
+        set -f
+        read -r -a borg_excludes <<< "$BORG_EXCLUDE"
+        set +f
+    fi
+}
+
+prune_borg_dirs() {
+    local name=$1 result
+    result=$(borg prune -v --list --glob-archives "$(archive_glob "$name")" --keep-daily="$KEEP_DAILY" --keep-weekly="$KEEP_WEEKLY" --keep-monthly="$KEEP_MONTHLY" "$BORG_REPO" 2>&1)
+    if [ $? -gt 0 ]; then
+        write_warning "$phase $name" "Backups für $name konnten nicht aufgeräumt werden"
+        write_warning "$phase $name" "$result"
+    else
+        write_success "$phase $name" "$result"
+    fi
 }
 
 maybe_break_lock() {
@@ -82,22 +118,7 @@ borg_prune() {
             fi
         fi
     done
-    OLDIFS=$IFS
-    IFS=$'\n'
-    for v in $(env |grep BORG_DIRS); do 
-      v=`echo $v | cut -d\_ -f3`
-      repo=`echo $v | cut -d\= -f1`
-      if [ $repo != "" ]; then
-        result=$(borg prune -v --list --glob-archives "$(archive_glob "$repo")" --keep-daily="$KEEP_DAILY" --keep-weekly="$KEEP_WEEKLY" --keep-monthly="$KEEP_MONTHLY" "$BORG_REPO" 2>&1)
-        if [ $? -gt 0 ]; then
-          write_warning "$phase $repo" "Backups für $repo konnten nicht aufgeräumt werden"
-          write_warning "$phase $repo" "$result"
-        else
-          write_success "$phase $repo" "$result" 
-        fi
-      fi
-    done
-    IFS=$OLDIFS
+    each_borg_dirs prune_borg_dirs
 
     phase="Speicherplatz freigeben"
     if borg --help |grep compact >/dev/null; then
@@ -156,7 +177,11 @@ fi
 
 # domain / container settings
 if [ "x$DEFAULT_DOMAINS" == "x" ]; then
-  export DEFAULT_DOMAINS=$(/usr/bin/virsh list --name | tr '\n' ' ')
+  if [ "x$BACKUP_SHUTOFF" == "xy" ]; then
+    export DEFAULT_DOMAINS=$(/usr/bin/virsh list --all --name | tr '\n' ' ')
+  else
+    export DEFAULT_DOMAINS=$(/usr/bin/virsh list --name | tr '\n' ' ')
+  fi
 fi
 if [ $# -eq 0 ]; then
     export domains=$DEFAULT_DOMAINS
@@ -165,9 +190,6 @@ else
 fi
 
 # other settings
-if [ "x$BORG_EXCLUDE" == "x" ]; then
-  export BORG_EXCLUDE="--exclude '*/.btrfs' --exclude '*/.snapshots'"
-fi
 if [ "x$BORG_TRIES" == "x" ]; then 
   export BORG_TRIES=20
 fi
@@ -176,8 +198,11 @@ retval=0
 shortrepo=$(echo $BORG_REPO | sed -E 's|/\|:|_|g' | sed -E 's|@|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g')
 GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
 rm -rf /var/spool/borgbackup/*\@*
-if [ ! -d $GLOBALSTATUSDIR ]; then
-  mkdir -p $GLOBALSTATUSDIR
+if [ ! -d "$GLOBALSTATUSDIR" ]; then
+  mkdir -p "$GLOBALSTATUSDIR"
+fi
+if [ -n "$shortrepo" ]; then
+  chmod 700 "$GLOBALSTATUSDIR"
 fi
 
 STATUSDIR=$GLOBALSTATUSDIR
@@ -197,41 +222,56 @@ if [ "x$BORG_REPO" == "x" ]; then
 fi
 
 
-if pidof -x -o $$ $(basename "$0"); then
+exec 9>/var/lock/qemu-borg-backup.lock
+if ! flock -n 9; then
   write_error "Vorbereitung" "Backup läuft bereits..."
   do_exit 1
 fi
 
+mounted_by_us=
+cleanup() {
+  if [ -n "$mounted_by_us" ] && mountpoint -q "$MOUNTPOINT"; then
+    umount "$MOUNTPOINT"
+  fi
+}
+trap cleanup EXIT
+
 phase="Backupziel vorbereiten"
 if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
-    if mountpoint -q $MOUNTPOINT; then
+    if [ -z "$MOUNTPOINT" ]; then
+       write_error "$phase" "Kein Mountpunkt angegeben"
+       do_exit 1
+    fi
+    if mountpoint -q "$MOUNTPOINT"; then
        write_warning "$phase" "Mountpunkt nicht leer..."
-       if ! umount $MOUNTPOINT; then
+       if ! umount "$MOUNTPOINT"; then
           write_error "$phase" "Konnte nicht ausgehängt werden..."
           do_exit 1
        fi
        write_info "$phase" "Erfolgreich ausgehängt..."
-       if mountpoint -q $MOUNTPOINT; then
+       if mountpoint -q "$MOUNTPOINT"; then
           do_exit 1
        fi
     fi
 fi
 
 if [ "x" != "x$FS_UUID" ]; then
-    mount UUID="$FS_UUID" $MOUNTPOINT
-    if ! mountpoint -q $MOUNTPOINT; then
+    mount UUID="$FS_UUID" "$MOUNTPOINT"
+    if ! mountpoint -q "$MOUNTPOINT"; then
        write_error "$phase" "Backupziel konnte nicht eingehängt werden..."
        do_exit 1
     fi
+    mounted_by_us=1
 elif [ "x" != "x$NFS_PATH" ]; then
-    if ! mount.nfs -o rw,tcp,hard,nfsvers=4.0,rsize=65536,wsize=65536,noatime,intr,_netdev $NFS_PATH $MOUNTPOINT; then
+    if ! mount.nfs -o rw,tcp,hard,nfsvers=4.0,rsize=65536,wsize=65536,noatime,_netdev "$NFS_PATH" "$MOUNTPOINT"; then
        write_error "$phase" "Backupziel konnte nicht eingehängt werden..."
        do_exit 1
     fi
-    if ! mountpoint -q $MOUNTPOINT; then
+    if ! mountpoint -q "$MOUNTPOINT"; then
        write_error "$phase" "Backupziel konnte nicht eingehängt werden..."
        do_exit 1
     fi
+    mounted_by_us=1
 fi
 
 maybe_break_lock
@@ -248,9 +288,10 @@ if [ -f /usr/bin/virsh ]; then
   for domain in $domains; do
     if [ $domain != "" ]; then
       STATUSDIR=$GLOBALSTATUSDIR/$domain
-      if [ ! -d $STATUSDIR ]; then
-        mkdir $STATUSDIR
+      if [ ! -d "$STATUSDIR" ]; then
+        mkdir "$STATUSDIR"
       fi
+      chmod 700 "$STATUSDIR"
       touch $STATUSDIR/running
       rm $STATUSDIR/*.log
       result=`qemu-borg-backup.sh $domain 2>&1`
@@ -273,9 +314,10 @@ if [ "x$LXC_BACKUP" == "xy" ]; then
   phase="LXC-Backup"
   for container in $LXC_CONTAINERS; do
     STATUSDIR=$GLOBALSTATUSDIR/$container
-    if [ ! -d $STATUSDIR ]; then
-      mkdir $STATUSDIR
+    if [ ! -d "$STATUSDIR" ]; then
+      mkdir "$STATUSDIR"
     fi
+    chmod 700 "$STATUSDIR"
     rm $STATUSDIR/*.log
     touch $STATUSDIR/running
     result=`lxc-borg-backup.sh $container 2>&1`
@@ -296,33 +338,31 @@ maybe_break_lock
 
 # Dateibackup
 phase="Dateibackup"
-OLDIFS=$IFS
-IFS=$'\n'
-for v in $(env |grep BORG_DIRS); do 
-  v=`echo $v | cut -d\_ -f3`
-  repo=`echo $v | cut -d\= -f1`
-  dirs=`echo $v | cut -d\= -f2`
+load_borg_excludes
+backup_borg_dirs() {
+  local repo=$1 dirs=$2 result exitCode
   STATUSDIR=$GLOBALSTATUSDIR/$repo
-  if [ ! -d $STATUSDIR ]; then
-    mkdir $STATUSDIR
+  if [ ! -d "$STATUSDIR" ]; then
+    mkdir "$STATUSDIR"
   fi
+  chmod 700 "$STATUSDIR"
   rm $STATUSDIR/*.log
   touch $STATUSDIR/running
-  IFS=$OLDIFS
-  result=$(borg create -v -C zstd --stats $BORG_EXCLUDE $BORG_REPO::$repo-'{now}' $dirs 2>&1)
+  set -f
+  result=$(borg create -v -C zstd --stats "${borg_excludes[@]}" "$BORG_REPO::$repo-{now}" -- $dirs 2>&1)
   exitCode=$?
-  IFS=$'\n'
+  set +f
   rm $STATUSDIR/running
-  if [ $exitCode -eq 1 ]; then 
-    write_error ""$phase" $repo" "$result"
-  elif [ $exitCode -eq 2 ]; then 
-    write_warning ""$phase" $repo" "$result"
-  else 
+  if [ $exitCode -eq 1 ]; then
+    write_error "$phase $repo" "$result"
+  elif [ $exitCode -eq 2 ]; then
+    write_warning "$phase $repo" "$result"
+  else
     touch $STATUSDIR/timestamp
-    write_success ""$phase" $repo" "$result"
+    write_success "$phase $repo" "$result"
   fi
-done
-IFS=$OLDIFS
+}
+each_borg_dirs backup_borg_dirs
 
 STATUSDIR=$GLOBALSTATUSDIR
 
@@ -333,8 +373,9 @@ fi
 
 borg info $BORG_REPO > $STATUSDIR/info
 
-if [ "x" != "x$FS_UUID" -o "x" != "x$NFS_PATH" ]; then
-  umount $MOUNTPOINT
+if [ -n "$mounted_by_us" ]; then
+  umount "$MOUNTPOINT"
+  mounted_by_us=
 fi
 
 if [ $retval -eq 0 ]; then
