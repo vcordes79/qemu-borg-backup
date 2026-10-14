@@ -36,6 +36,52 @@ wait_for_agent() {
     done
 }
 
+dom_state() {
+    virsh domstate "$1" 2>/dev/null | tr -d '\r'
+}
+
+wake_if_suspended() {
+    local domain=$1 state
+    state=$(dom_state "$domain")
+    case "$state" in
+        paused)
+            echo "VM $domain ist suspended, wird für den Snapshot fortgesetzt"
+            virsh resume "$domain" || return 1
+            was_suspended=paused
+            wait_for_domstate "$domain" running || return 1
+            ;;
+        pmsuspended)
+            echo "VM $domain ist im Energiesparmodus, wird für den Snapshot aufgeweckt"
+            virsh dompmwakeup "$domain" || return 1
+            was_suspended=pmsuspended
+            wait_for_domstate "$domain" running || return 1
+            ;;
+    esac
+}
+
+restore_suspended() {
+    local mode=$was_suspended state
+    [ -n "$mode" ] || return 0
+    was_suspended=
+    state=$(dom_state "$domain")
+    [ "$state" = "running" ] || return 0
+    case "$mode" in
+        paused)
+            echo "VM $domain wird wieder suspended"
+            virsh suspend "$domain"
+            ;;
+        pmsuspended)
+            echo "VM $domain wird wieder in den Energiesparmodus versetzt"
+            virsh dompmsuspend "$domain" mem
+            ;;
+    esac
+}
+
+cleanup_qemu() {
+    restore_suspended
+    remove_ssh_wrapper
+}
+
 set_snapshot_params() {
     snap_params=(--no-metadata --atomic --disk-only)
     if virsh guestinfo "$1" >/dev/null 2>&1; then
@@ -150,9 +196,15 @@ if [[ -n "$domain" ]]; then
         echo "error: $ssh_key_error"
         exit 1
     fi
-    trap remove_ssh_wrapper EXIT
+    was_suspended=
+    trap cleanup_qemu EXIT
     if ! virsh list --all --name | grep -Fxq -- "$domain"; then
         echo "error: VM nicht gefunden"
+        exit 1
+    fi
+
+    if ! wake_if_suspended "$domain"; then
+        echo "error: $domain konnte nicht für den Snapshot aufgeweckt werden"
         exit 1
     fi
 
@@ -210,6 +262,10 @@ if [[ -n "$domain" ]]; then
     fi
 
     virsh domtime "$domain" --now
+    if ! restore_suspended; then
+        echo "error: $domain konnte nicht wieder angehalten werden"
+        exit 1
+    fi
 fi
 
 exit 0
