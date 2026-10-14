@@ -1,5 +1,9 @@
 #!/bin/bash
 
+run_restic() {
+    restic "${restic_ssh_opts[@]}" "$@"
+}
+
 load_restic_excludes() {
     if [ -z "$BORG_EXCLUDE" ]; then
         restic_excludes=(--exclude '*/.btrfs' --exclude '*/.snapshots')
@@ -23,14 +27,14 @@ maybe_unlock_restic() {
     if [ "x$BORG_BREAK_LOCK" != "x" ] && [ "x$BORG_BREAK_LOCK" != "xy" ]; then
         return 0
     fi
-    if out=$(restic snapshots 2>&1); then
+    if out=$(run_restic snapshots 2>&1); then
         return 0
     fi
     if printf '%s\n' "$out" | grep -q -i 'lock'; then
         if pidof restic >/dev/null; then
             echo "warning: Restic-Prozess läuft, Sperre bleibt bestehen"
         else
-            restic unlock
+            run_restic unlock
         fi
     fi
 }
@@ -47,7 +51,7 @@ restic_backup_paths() {
         exclude_args=("${restic_excludes[@]}")
     fi
     while true; do
-        restic backup --verbose "${restic_compression[@]}" \
+        run_restic backup --verbose "${restic_compression[@]}" \
             --tag "kind=$kind" --tag "name=$name" --host "$name" \
             "${exclude_args[@]}" -- "${paths[@]}" 2>&1
         last=$?
@@ -70,7 +74,7 @@ restic_backup_paths() {
 restic_forget() {
     local kind=$1 name=$2 result
     maybe_unlock_restic
-    result=$(restic forget --verbose \
+    result=$(run_restic forget --verbose \
         --tag "kind=$kind" --tag "name=$name" \
         --keep-daily "$KEEP_DAILY" --keep-weekly "$KEEP_WEEKLY" --keep-monthly "$KEEP_MONTHLY" 2>&1)
     if [ $? -gt 0 ]; then
@@ -83,7 +87,7 @@ restic_forget() {
 
 restic_prune() {
     local result
-    result=$(restic prune 2>&1)
+    result=$(run_restic prune 2>&1)
     if [ $? -gt 0 ]; then
         write_warning "$phase restic" "Repository konnte nicht aufgeräumt werden"
         write_warning "$phase restic" "$result"

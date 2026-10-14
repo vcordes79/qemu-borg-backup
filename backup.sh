@@ -332,6 +332,10 @@ if [ "$BACKUP_RESTIC" = "y" ]; then
     do_exit 1
   fi
 fi
+if ! apply_ssh_key; then
+  write_error "$phase" "$ssh_key_error"
+  do_exit 1
+fi
 
 exec 9>/var/lock/qemu-borg-backup.lock
 if ! flock -n 9; then
@@ -344,6 +348,7 @@ cleanup() {
   if [ -n "$mounted_by_us" ] && mountpoint -q "$MOUNTPOINT"; then
     umount "$MOUNTPOINT"
   fi
+  remove_ssh_wrapper
 }
 trap cleanup EXIT
 
@@ -439,9 +444,9 @@ if [ "$BACKUP_BORG" = "y" ]; then
 fi
 if [ "$BACKUP_RESTIC" = "y" ]; then
   if [ "$BACKUP_BORG" = "y" ]; then
-    restic snapshots >> "$STATUSDIR/info"
+    run_restic snapshots >> "$STATUSDIR/info"
   else
-    restic snapshots > "$STATUSDIR/info"
+    run_restic snapshots > "$STATUSDIR/info"
   fi
 fi
 

@@ -20,6 +20,11 @@ if [ -z "$BACKUP_BORG" ] && [ -z "$BACKUP_RESTIC" ]; then
     echo "error: Kein Backup-Backend ausgewählt"
     exit 1
 fi
+if ! apply_ssh_key; then
+    echo "error: $ssh_key_error"
+    exit 1
+fi
+trap remove_ssh_wrapper EXIT
 
 export CONTAINER_STORAGE_PATH=$LXC_STORAGE_PATH
 POOL=$(lxc config device show "$container" | grep pool | cut -d : -f 2 | sed -z 's/^[[:space:]]*//' | sed -z 's/[[:space:]]*$//')

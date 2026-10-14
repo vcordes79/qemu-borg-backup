@@ -144,6 +144,11 @@ if [[ -n "$domain" ]]; then
         echo "error: Kein Backup-Backend ausgewählt"
         exit 1
     fi
+    if ! apply_ssh_key; then
+        echo "error: $ssh_key_error"
+        exit 1
+    fi
+    trap remove_ssh_wrapper EXIT
     if ! virsh list --all | grep -F "$domain" >/dev/null; then
         echo "error: VM nicht gefunden"
         exit 1
