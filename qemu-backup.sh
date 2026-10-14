@@ -91,6 +91,8 @@ parse_disks() {
     local domain=$1 line rest disk_type device target source
     declare -gA disk_source=()
     while IFS= read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
         [[ "$line" == Type* || "$line" == -* || -z "$line" ]] && continue
         rest=$line
         disk_type=${rest%%[[:space:]]*}
