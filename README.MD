@@ -26,7 +26,7 @@ export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
 | `lxc-borg-backup.sh <container>` | Ein Container, nur Borg. |
 | `lxc-restic-backup.sh <container>` | Ein Container, nur Restic. |
 
-Argumente von `backup.sh`, `borg-backup.sh` und `restic-backup.sh` sind VM-Namen. Ohne Argumente ermittelt das Skript die VMs selbst. Container und Dateiverzeichnisse bleiben davon unberührt.
+Argumente von `backup.sh`, `borg-backup.sh` und `restic-backup.sh` sind exakte VM-Namen. Ohne Argumente ermittelt das Skript die VMs selbst. Container und Dateiverzeichnisse bleiben davon unberührt.
 
 Beide Backends gleichzeitig:
 
@@ -41,11 +41,13 @@ export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
 ./backup.sh
 ```
 
-Fällt eines der beiden Backends aus, läuft das andere zu Ende. Der VM-Overlay wird danach zurückgeführt und der LXC-Snapshot gelöscht. Der Lauf endet mit Status 1.
+Fällt eines der beiden Backends aus, läuft das andere zu Ende. Der VM-Overlay wird danach zurückgeführt und der LXC-Snapshot gelöscht. Der Lauf endet dann mit Status 1. Status 0 ist Erfolg, Status 2 eine Warnung. Jeder andere Status ist ein Fehler.
 
 ## Ablauf
 
-**VMs.** `virsh` legt einen externen Disk-only-Snapshot namens `borg.qcow2` an. Gesichert werden die darunterliegenden Images. Anschließend führt `blockcommit` den Overlay zurück. Schlägt der Snapshot fehl, fährt das Skript die VM herunter, wartet auf `shut off`, startet sie neu und versucht den Snapshot erneut, diesmal mit `--quiesce`, sobald der QEMU-Agent antwortet. Vor dem Snapshot geht ein TRIM an den Gast, außer der Name ist `pfsense` oder `opnsense`. Nach erfolgreichem Backup und Blockcommit setzt `virsh domtime` die Gastuhr. Image-Pfade, die `_backup` enthalten, werden mitgesnapshotet und zurückgeführt, aber nicht ins Archiv aufgenommen.
+**VMs.** Ist die VM `paused` (suspended), wird sie mit `virsh resume` fortgesetzt. Ist sie `pmsuspended`, weckt `virsh dompmwakeup` sie auf. Nach dem Backup legt das Skript sie wieder in denselben Zustand. `virsh` legt einen externen Disk-only-Snapshot namens `borg.qcow2` an. Gesichert werden die darunterliegenden Images. Anschließend führt `blockcommit` den Overlay zurück. Schlägt der Snapshot fehl, fährt das Skript die VM herunter, wartet auf `shut off`, startet sie neu und versucht den Snapshot erneut, diesmal mit `--quiesce`, sobald der QEMU-Agent antwortet. Vor dem Snapshot geht ein TRIM an den Gast, außer der Name ist `pfsense` oder `opnsense`. Nach erfolgreichem Backup und Blockcommit setzt `virsh domtime` die Gastuhr. Image-Pfade, die `_backup` enthalten, werden mitgesnapshotet und zurückgeführt, aber nicht ins Archiv aufgenommen.
+
+Kann `virsh list` die VM-Liste nicht lesen, bricht der Lauf ab. Dasselbe gilt für `lxc list`, wenn `lxc` installiert ist und `LXC_BACKUP=y`.
 
 **LXC.** `lxc snapshot <container> borgbackup` friert den Container ein. Verschachtelte Btrfs-Subvolumes unter dem Snapshot werden entfernt, dann sichert das Backend das Snapshot-Verzeichnis, danach löscht `lxc delete` den Snapshot. Ist `LXC_STOP_MYSQL` gesetzt, wird vorher `service mysql stop` im Container ausgeführt und danach wieder gestartet.
 
@@ -117,7 +119,7 @@ Ist der Einhängepunkt bereits belegt, hängt das Skript ihn aus und danach neu 
 
 | Variable | Standard | Bedeutung |
 |---|---|---|
-| `BACKUP_SHUTOFF` | aus | `y` nimmt auch ausgeschaltete VMs auf (`virsh list --all`). Sonst nur laufende VMs (`virsh list`). |
+| `BACKUP_SHUTOFF` | aus | `y` nimmt auch ausgeschaltete VMs auf (`virsh list --all`). Sonst nur aktive VMs (`virsh list`), also laufende und angehaltene. |
 | `DEFAULT_DOMAINS` | Ausgabe von `virsh list` | Leerzeichengetrennte VM-Namen. Argumente auf der Kommandozeile ersetzen diese Liste für den einen Lauf. |
 
 ### LXC
