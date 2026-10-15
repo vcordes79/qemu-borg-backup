@@ -24,6 +24,9 @@ restic_compression_args() {
 
 maybe_unlock_restic() {
     local out
+    if [ "$RESTIC_IMMUTABLE" = "y" ]; then
+        return 0
+    fi
     if [ "x$BORG_BREAK_LOCK" != "x" ] && [ "x$BORG_BREAK_LOCK" != "xy" ]; then
         return 0
     fi
@@ -73,6 +76,9 @@ restic_backup_paths() {
 
 restic_forget() {
     local kind=$1 name=$2 result
+    if [ "$RESTIC_IMMUTABLE" = "y" ]; then
+        return 0
+    fi
     maybe_unlock_restic
     result=$(run_restic forget --verbose \
         --tag "kind=$kind" --tag "name=$name" \
@@ -87,6 +93,10 @@ restic_forget() {
 
 restic_prune() {
     local result
+    if [ "$RESTIC_IMMUTABLE" = "y" ]; then
+        write_info "$phase restic" "Immutable-Modus, Aufbewahrung bleibt unverändert"
+        return 0
+    fi
     result=$(run_restic prune 2>&1)
     if [ $? -gt 0 ]; then
         write_warning "$phase restic" "Repository konnte nicht aufgeräumt werden"

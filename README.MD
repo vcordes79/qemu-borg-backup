@@ -83,16 +83,35 @@ Werte außer `y` schalten eine Option aus, deren Beschreibung genau `y` verlangt
 
 | Variable | Standard | Bedeutung |
 |---|---|---|
-| `RESTIC_REPOSITORY` | — | Restic-Repository. Pflicht, wenn Restic läuft. SFTP-Beispiel: `sftp:backup@host:/repo`. |
+| `RESTIC_REPOSITORY` | — | Restic-Repository. Pflicht, wenn Restic läuft. SFTP-Beispiel: `sftp:backup@host:/repo`. Im Immutable-Modus: `rclone:user@host`, optional mit Port `rclone:user@host:23`. Ein Pfad hinter dem Host wird ignoriert, weil der Server den Repository-Pfad in der SSH-Beschränkung festlegt. |
 | `RESTIC_PASSWORD` | — | Passwort des Restic-Repositorys. Pflicht, wenn Restic läuft. |
+| `RESTIC_IMMUTABLE` | aus | `y` schaltet den Append-only-Zugriff ein. `forget`, `prune` und `unlock` entfallen. `KEEP_DAILY`, `KEEP_WEEKLY` und `KEEP_MONTHLY` gelten dann nur für Borg. |
 
 Restic-Archive tragen die Tags `kind=vm`, `kind=lxc` oder `kind=dir` sowie `name=<Name>`. Der Hostname des Schnappschusses ist derselbe Name. `--compression max` wird gesetzt, wenn `restic backup --help` die Option enthält.
+
+Im Immutable-Modus verbindet sich Restic per SSH mit dem Rclone-Backend. Auf dem Server beschränkt `authorized_keys` den Schlüssel auf Anhängen:
+
+```
+restrict,command="rclone serve restic --stdio --append-only /pfad/zum/repo" ssh-ed25519 AAAA...
+```
+
+Das Repository muss vorher mit einem Schlüssel ohne diese Beschränkung angelegt werden. `BACKUP_SSH_KEY` wird als `ssh -i` verwendet. Beispiel:
+
+```bash
+export BACKUP_RESTIC=y
+export BACKUP_BORG=n
+export RESTIC_IMMUTABLE=y
+export RESTIC_PASSWORD='geheim'
+export RESTIC_REPOSITORY='rclone:backup@backuphost'
+export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
+./restic-backup.sh
+```
 
 ### SSH
 
 | Variable | Standard | Bedeutung |
 |---|---|---|
-| `BACKUP_SSH_KEY` | SSH-Standardschlüssel | Pfad zum privaten Schlüssel. Borg ruft `ssh -i <Schlüssel> -o IdentitiesOnly=yes` auf. Bei einem Restic-Repository mit Präfix `sftp:` gilt derselbe Schlüssel. Die Datei muss existieren, lesbar sein und für Gruppe und Andere keine Rechte haben (Modus `600` oder `400`). |
+| `BACKUP_SSH_KEY` | SSH-Standardschlüssel | Pfad zum privaten Schlüssel. Borg ruft `ssh -i <Schlüssel> -o IdentitiesOnly=yes` auf. Bei einem Restic-Repository mit Präfix `sftp:` und im Immutable-Modus gilt derselbe Schlüssel. Die Datei muss existieren, lesbar sein und für Gruppe und Andere keine Rechte haben (Modus `600` oder `400`). |
 
 ### Aufbewahrung
 

@@ -7,6 +7,10 @@ apply_ssh_key() {
     restic_ssh_opts=()
     ssh_key_error=
     if [ -z "$BACKUP_SSH_KEY" ]; then
+        if ! apply_restic_immutable; then
+            ssh_key_error=$restic_immutable_error
+            return 1
+        fi
         return 0
     fi
     if [ ! -e "$BACKUP_SSH_KEY" ]; then
@@ -45,6 +49,51 @@ apply_ssh_key() {
         fi
         restic_ssh_opts=(-o "sftp.command=$ssh_wrapper_dir/ssh")
     fi
+    if ! apply_restic_immutable; then
+        remove_ssh_wrapper
+        if [ -z "$ssh_key_error" ]; then
+            ssh_key_error=$restic_immutable_error
+        fi
+        return 1
+    fi
+}
+
+apply_restic_immutable() {
+    restic_immutable_error=
+    if [ "$RESTIC_IMMUTABLE" != "y" ] || [ "$BACKUP_RESTIC" != "y" ]; then
+        return 0
+    fi
+    local spec=${RESTIC_REPOSITORY#rclone:} target port program q
+    if [ "$spec" = "$RESTIC_REPOSITORY" ] || [ -z "$spec" ]; then
+        restic_immutable_error="RESTIC_REPOSITORY muss im Immutable-Modus die Form rclone:user@host haben"
+        return 1
+    fi
+    if [[ "$spec" == */* ]]; then
+        spec=${spec%%/*}
+    fi
+    port=
+    if [[ "$spec" =~ ^(.+@[^:]+):([0-9]+)$ ]]; then
+        target=${BASH_REMATCH[1]}
+        port=${BASH_REMATCH[2]}
+    elif [[ "$spec" =~ ^(.+@[^:]+):.+$ ]]; then
+        target=${BASH_REMATCH[1]}
+    else
+        target=$spec
+    fi
+    if [[ "$target" != *@* ]]; then
+        restic_immutable_error="RESTIC_REPOSITORY muss im Immutable-Modus die Form rclone:user@host haben"
+        return 1
+    fi
+    program="ssh -o BatchMode=yes"
+    if [ -n "$port" ]; then
+        program+=" -p $port"
+    fi
+    if [ -n "$BACKUP_SSH_KEY" ]; then
+        q=${BACKUP_SSH_KEY//\'/\'\\\'\'}
+        program+=" -i '$q' -o IdentitiesOnly=yes"
+    fi
+    program+=" $target"
+    restic_ssh_opts+=(-o "rclone.program=$program")
 }
 
 remove_ssh_wrapper() {
@@ -64,7 +113,10 @@ resolve_backends() {
     if [ "$BACKUP_RESTIC" != "y" ]; then
         BACKUP_RESTIC=
     fi
-    export BACKUP_BORG BACKUP_RESTIC
+    if [ "$RESTIC_IMMUTABLE" != "y" ]; then
+        RESTIC_IMMUTABLE=
+    fi
+    export BACKUP_BORG BACKUP_RESTIC RESTIC_IMMUTABLE
 }
 
 run_enabled_backends() {
