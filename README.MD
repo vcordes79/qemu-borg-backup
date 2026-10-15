@@ -2,7 +2,7 @@
 
 Sichert QEMU/KVM-VMs, LXC-Container und ausgewählte Verzeichnisse mit Borg und wahlweise Restic oder Rustic. VMs und Container werden dafür einmal eingefroren. Beide Backends schreiben denselben Stand, danach wird der Snapshot aufgelöst.
 
-Der HTML-Bericht geht auf die Standardausgabe. Statusdateien liegen unter `/var/spool/borgbackup/<Repository>`. Ein zweiter Lauf wartet, solange `/var/lock/qemu-borg-backup.lock` gehalten wird.
+Der HTML-Bericht geht auf die Standardausgabe. Statusdateien liegen unter `/var/spool/borgbackup/<Repository>`. Dieses Verzeichnis, die Unterverzeichnisse je Ziel und die Dateien darin sind für alle Benutzer lesbar. Ein zweiter Lauf wartet, solange `/var/lock/qemu-borg-backup.lock` gehalten wird.
 
 ## Aufruf
 

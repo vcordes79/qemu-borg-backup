@@ -22,29 +22,78 @@ write_header() {
   echo "<html><body><table>"
 }
 
+publish_status_entry() {
+  local path=$1
+  if [ -d "$path" ]; then
+    chmod 755 "$path"
+  elif [ -f "$path" ]; then
+    chmod 644 "$path"
+  fi
+}
+
+publish_status_tree() {
+  local dir=$1 entry sub
+  [ -d "$dir" ] || return 0
+  if [ -d /var/spool/borgbackup ]; then
+    chmod 755 /var/spool/borgbackup
+  fi
+  publish_status_entry "$dir"
+  for entry in "$dir"/*; do
+    [ -e "$entry" ] || continue
+    if [ -d "$entry" ]; then
+      publish_status_entry "$entry"
+      for sub in "$entry"/*; do
+        [ -f "$sub" ] || continue
+        publish_status_entry "$sub"
+      done
+    else
+      publish_status_entry "$entry"
+    fi
+  done
+}
+
+open_status_dir() {
+  if [ ! -d "$1" ]; then
+    mkdir -p "$1" || return 0
+  fi
+  publish_status_tree "$1"
+}
+
+touch_status() {
+  touch "$1"
+  publish_status_entry "$1"
+}
+
 write_warning() {
   echo "<tr style='background-color:yellow;color:black'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
   [[ "${retval:-0}" -eq 0 ]] && retval=2
   echo "$1: $2" >> "$STATUSDIR/warning.log"
+  publish_status_entry "$STATUSDIR/warning.log"
 }
 
 write_info() {
   echo "<tr style='background-color:lightblue;color:black'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
   echo "$1: $2" >> "$STATUSDIR/info.log"
+  publish_status_entry "$STATUSDIR/info.log"
 }
 
 write_success() {
   echo "<tr style='background-color:lightgreen;color:black'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
   echo "$1: $2" >> "$STATUSDIR/success.log"
+  publish_status_entry "$STATUSDIR/success.log"
 }
 
 write_error() {
   echo "<tr style='background-color:red;color:white'><th>$(html_escape "$1")</th></tr><tr><td><pre>$(html_escape "$2")</pre></td></tr>"
   retval=1
   echo "$1: $2" >> "$STATUSDIR/error.log"
+  publish_status_entry "$STATUSDIR/error.log"
 }
 
 do_exit() {
+  if [ -n "${GLOBALSTATUSDIR:-}" ]; then
+    publish_status_tree "$GLOBALSTATUSDIR"
+  fi
   echo '</table></body></html>'
   exit $1
 }
@@ -105,7 +154,7 @@ apply_child_result() {
     if [ "$saw" -eq 0 ]; then
         note_result "$phase_name $target" "$result" "$exitCode"
         if [ "$exitCode" -eq 0 ]; then
-            touch "$STATUSDIR/timestamp"
+            touch_status "$STATUSDIR/timestamp"
         fi
         return
     fi
@@ -133,7 +182,7 @@ apply_child_result() {
         fi
     fi
     if [ "$all_ok" -eq 1 ]; then
-        touch "$STATUSDIR/timestamp"
+        touch_status "$STATUSDIR/timestamp"
     fi
 }
 
@@ -142,12 +191,9 @@ run_child() {
     shift 2
     local result exitCode
     STATUSDIR=$GLOBALSTATUSDIR/$target
-    if [ ! -d "$STATUSDIR" ]; then
-        mkdir "$STATUSDIR"
-    fi
-    chmod 700 "$STATUSDIR"
+    open_status_dir "$STATUSDIR"
     rm -f "$STATUSDIR"/*.log
-    touch "$STATUSDIR/running"
+    touch_status "$STATUSDIR/running"
     result=$("$@" 2>&1)
     exitCode=$?
     rm -f "$STATUSDIR/running"
@@ -198,12 +244,9 @@ backup_dir_group() {
     local -a paths=()
     local tool rc result all_ok=1
     STATUSDIR=$GLOBALSTATUSDIR/$name
-    if [ ! -d "$STATUSDIR" ]; then
-        mkdir "$STATUSDIR"
-    fi
-    chmod 700 "$STATUSDIR"
+    open_status_dir "$STATUSDIR"
     rm -f "$STATUSDIR"/*.log
-    touch "$STATUSDIR/running"
+    touch_status "$STATUSDIR/running"
     set -f
     # shellcheck disable=SC2086
     paths=($dirs)
@@ -222,7 +265,7 @@ backup_dir_group() {
     fi
     rm -f "$STATUSDIR/running"
     if [ "$all_ok" -eq 1 ]; then
-        touch "$STATUSDIR/timestamp"
+        touch_status "$STATUSDIR/timestamp"
     fi
 }
 
@@ -305,12 +348,7 @@ fi
 shortrepo=$(echo "$status_source" | sed -E 's|/\|:|_|g' | sed -E 's|@|_|g' | sed -E 's|_+|_|g' | sed -E 's|^_||g')
 GLOBALSTATUSDIR=/var/spool/borgbackup/$shortrepo
 rm -rf /var/spool/borgbackup/*\@*
-if [ ! -d "$GLOBALSTATUSDIR" ]; then
-  mkdir -p "$GLOBALSTATUSDIR"
-fi
-if [ -n "$shortrepo" ]; then
-  chmod 700 "$GLOBALSTATUSDIR"
-fi
+open_status_dir "$GLOBALSTATUSDIR"
 
 STATUSDIR=$GLOBALSTATUSDIR
 rm -f "$STATUSDIR"/*.log
@@ -423,7 +461,7 @@ if [ "$BACKUP_RESTIC" = "y" ]; then
   maybe_unlock_restic
 fi
 
-touch $STATUSDIR/running
+touch_status "$STATUSDIR/running"
 
 if [ "x$PRUNE_FIRST" != "x" ]; then
   run_retention
@@ -475,6 +513,9 @@ if [ "$BACKUP_RESTIC" = "y" ]; then
     run_restic snapshots > "$STATUSDIR/info"
   fi
 fi
+if [ -f "$STATUSDIR/info" ]; then
+  publish_status_entry "$STATUSDIR/info"
+fi
 
 if [ -n "$mounted_by_us" ]; then
   umount "$MOUNTPOINT"
@@ -482,7 +523,7 @@ if [ -n "$mounted_by_us" ]; then
 fi
 
 if [ $retval -eq 0 ]; then
-  touch $STATUSDIR/timestamp
+  touch_status "$STATUSDIR/timestamp"
   write_success "backup" "erfolgreich"
 fi
 
