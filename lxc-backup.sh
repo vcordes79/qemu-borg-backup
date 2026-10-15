@@ -20,6 +20,14 @@ if [ -z "$BACKUP_BORG" ] && [ -z "$BACKUP_RESTIC" ]; then
     echo "error: Kein Backup-Backend ausgewählt"
     exit 1
 fi
+if [ "$BACKUP_RESTIC" = "y" ] && [ -n "$restic_program_error" ]; then
+    echo "error: $restic_program_error"
+    exit 1
+fi
+fallback_from_rustic
+if [ -n "$rustic_fallback_warning" ]; then
+    echo "warning: $rustic_fallback_warning"
+fi
 if ! apply_ssh_key; then
     echo "error: $ssh_key_error"
     exit 1

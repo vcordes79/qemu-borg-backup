@@ -109,7 +109,7 @@ apply_child_result() {
         fi
         return
     fi
-    for tool in borg restic; do
+    for tool in borg restic rustic; do
         [ -v "code[$tool]" ] || continue
         note_result "$phase_name $target $tool" "${body[$tool]}" "${code[$tool]}"
         if [ "${code[$tool]}" != "0" ]; then
@@ -217,7 +217,7 @@ backup_dir_group() {
     if [ "$BACKUP_RESTIC" = "y" ]; then
         result=$(restic_backup_paths "$name" dir y 1 "${paths[@]}" 2>&1)
         rc=$?
-        note_result "$phase $name restic" "$result" "$rc"
+        note_result "$phase $name $RESTIC_PROGRAM" "$result" "$rc"
         [ "$rc" -eq 0 ] || all_ok=0
     fi
     rm -f "$STATUSDIR/running"
@@ -333,12 +333,20 @@ if [ "$BACKUP_BORG" = "y" ]; then
   fi
 fi
 if [ "$BACKUP_RESTIC" = "y" ]; then
+  fallback_from_rustic
+  if [ -n "$rustic_fallback_warning" ]; then
+    write_warning "$phase" "$rustic_fallback_warning"
+  fi
+  if [ -n "$restic_program_error" ]; then
+    write_error "$phase" "$restic_program_error"
+    do_exit 1
+  fi
   if [ -z "$RESTIC_PASSWORD" ]; then
-    write_error "$phase" "Kein Restic-Passwort angegeben"
+    write_error "$phase" "Kein Passwort für $RESTIC_PROGRAM angegeben"
     do_exit 1
   fi
   if [ -z "$RESTIC_REPOSITORY" ]; then
-    write_error "$phase" "Kein Restic-Repository angegeben"
+    write_error "$phase" "Kein Repository für $RESTIC_PROGRAM angegeben"
     do_exit 1
   fi
 fi
