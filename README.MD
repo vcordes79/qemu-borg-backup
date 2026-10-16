@@ -18,6 +18,7 @@ export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
 |---|---|
 | `backup.sh` | Hauptprogramm. Ohne weitere Variablen läuft Borg. |
 | `borg-backup.sh` | Ruft `backup.sh` auf. Gesetztes `BACKUP_RESTIC=y` bleibt wirksam. |
+| `repo-init.sh` | Legt die Repositorys der gewählten Backends an, wenn sie noch nicht existieren. |
 | `restic-backup.sh` | Nur Restic. Setzt `RESTIC_PROGRAM=restic`. |
 | `rustic-backup.sh` | Nur Rustic. Setzt `RESTIC_PROGRAM=rustic`. |
 | `qemu-backup.sh <vm>` | Eine VM, Backends wie in der Umgebung gesetzt. |
@@ -30,6 +31,31 @@ export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
 | `lxc-rustic-backup.sh <container>` | Ein Container, nur Rustic. |
 
 Argumente von `backup.sh`, `borg-backup.sh`, `restic-backup.sh` und `rustic-backup.sh` sind exakte VM-Namen. Ohne Argumente ermittelt das Skript die VMs selbst. Container und Dateiverzeichnisse bleiben davon unberührt.
+
+Repository einmal anlegen, bevor der erste Lauf schreibt:
+
+```bash
+export BORG_PASSPHRASE='geheim'
+export BORG_REPO='ssh://backup@backuphost/./repo'
+export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
+
+./repo-init.sh
+```
+
+`repo-init.sh` folgt `BACKUP_BORG` und `BACKUP_RESTIC` und liest dieselben Zugangsdaten wie das Backup, inklusive `BACKUP_SSH_KEY`. Ohne weitere Variablen legt es das Borg-Repository an. Sind beide Backends gewählt, legt es beide an. Restic oder Rustic ergibt sich aus `RESTIC_PROGRAM`. Ein vorhandenes Repository mit passender Passphrase bleibt unverändert. Fehlt das Borg-Repository, legt Borg 1 es mit `repokey-blake2` an und Borg 2 mit `repokey-blake2-aes-ocb`. Der Schlüssel liegt im Repository. `borg key export` schreibt eine Kopie nach außerhalb. Bietet die installierte Version `--make-parent-dirs`, werden fehlende übergeordnete Verzeichnisse angelegt. Für Restic und Rustic ruft das Skript `restic init` beziehungsweise `rustic init` auf, auch im Immutable-Modus. Der Pfad muss erreichbar sein. Eine falsche Passphrase, eine Sperre oder ein SSH-Fehler beenden das Skript mit Status 1. Das Backup legt kein Repository an.
+
+```bash
+export BACKUP_BORG=y
+export BACKUP_RESTIC=y
+export BORG_PASSPHRASE='geheim'
+export BORG_REPO='ssh://backup@backuphost/./repo'
+export RESTIC_PASSWORD='geheim'
+export RESTIC_REPOSITORY='rclone:backup@backuphost'
+export RESTIC_IMMUTABLE=y
+export BACKUP_SSH_KEY=/root/.ssh/backup_ed25519
+
+./repo-init.sh
+```
 
 Beide Backends gleichzeitig:
 
@@ -75,7 +101,7 @@ Werte außer `y` schalten eine Option aus, deren Beschreibung genau `y` verlangt
 
 | Variable | Standard | Bedeutung |
 |---|---|---|
-| `BORG_REPO` | — | Borg-Repository. Pflicht, wenn Borg läuft. Beispiel: `ssh://backup@host/./repo` oder ein lokaler Pfad. |
+| `BORG_REPO` | — | Borg-Repository. Pflicht, wenn Borg läuft. Beispiel: `ssh://backup@host/./repo` oder ein lokaler Pfad. `repo-init.sh` legt es an, wenn Borg gewählt ist und es noch nicht existiert. |
 | `BORG_PASSPHRASE` | — | Passphrase des Borg-Repositorys. Pflicht, wenn Borg läuft. |
 | `BORG_EXCLUDE` | `--exclude */.btrfs --exclude */.snapshots` | Zusätzliche Argumente für LXC- und Dateibackups, an Leerzeichen getrennt. Beispiel: `--exclude /var/cache --exclude /tmp`. VM-Images erhalten diese Ausschlüsse nicht. |
 | `BORG_TRIES` | `20` | Versuche für VM- und LXC-Backups. |
@@ -87,7 +113,7 @@ Werte außer `y` schalten eine Option aus, deren Beschreibung genau `y` verlangt
 | Variable | Standard | Bedeutung |
 |---|---|---|
 | `RESTIC_PROGRAM` | `restic` | `restic` oder `rustic`. Es läuft genau eines der beiden Programme. `restic-backup.sh` setzt `restic`, `rustic-backup.sh` setzt `rustic`. |
-| `RESTIC_REPOSITORY` | — | Repository. Pflicht, wenn dieses Backend läuft. SFTP-Beispiel: `sftp:backup@host:/repo`. Im Immutable-Modus: `rclone:user@host`, optional mit Port `rclone:user@host:23`. Ein Pfad hinter dem Host wird ignoriert, weil der Server den Repository-Pfad in der SSH-Beschränkung festlegt. Bei Rustic wird der Wert als `RUSTIC_REPOSITORY` weitergegeben. Im Immutable-Modus zeigt `RUSTIC_REPOSITORY` auf den lokalen `nghttpx`-Anschluss. |
+| `RESTIC_REPOSITORY` | — | Repository. Pflicht, wenn dieses Backend läuft. SFTP-Beispiel: `sftp:backup@host:/repo`. Im Immutable-Modus: `rclone:user@host`, optional mit Port `rclone:user@host:23`. Ein Pfad hinter dem Host wird ignoriert, weil der Server den Repository-Pfad in der SSH-Beschränkung festlegt. Bei Rustic wird der Wert als `RUSTIC_REPOSITORY` weitergegeben. Im Immutable-Modus zeigt `RUSTIC_REPOSITORY` auf den lokalen `nghttpx`-Anschluss. `repo-init.sh` legt es an, wenn dieses Backend gewählt ist und es noch nicht existiert. |
 | `RESTIC_PASSWORD` | — | Passwort des Repositorys. Pflicht, wenn dieses Backend läuft. Bei Rustic wird es als `RUSTIC_PASSWORD` weitergegeben. |
 | `RESTIC_IMMUTABLE` | aus | `y` schaltet den Append-only-Zugriff ein. `forget`, `prune` und `unlock` entfallen. `KEEP_DAILY`, `KEEP_WEEKLY` und `KEEP_MONTHLY` gelten dann nur für Borg. |
 
@@ -99,7 +125,7 @@ Im Immutable-Modus beschränkt `authorized_keys` den Schlüssel auf Anhängen:
 restrict,command="rclone serve restic --stdio --append-only /pfad/zum/repo" ssh-ed25519 AAAA...
 ```
 
-Das Repository muss vorher mit einem Schlüssel ohne diese Beschränkung angelegt werden. `BACKUP_SSH_KEY` wird als `ssh -i` verwendet.
+`restic init` legt das Repository über diesen Schlüssel an. Der Aufruf schreibt nur neue Dateien. Löschen und Überschreiben bleiben gesperrt. `BACKUP_SSH_KEY` wird als `ssh -i` verwendet.
 
 Restic setzt dafür `rclone.program` auf den SSH-Aufruf. Für Rustic startet das Skript `socat` und `nghttpx`. Socat legt den SSH-Datenstrom auf `127.0.0.1`. `nghttpx` nimmt dort HTTP/2 entgegen und bietet Rustic auf einem zweiten lokalen Port HTTP/1.1 an. Rustic sichert nach `rest:http://127.0.0.1:<Port>/`. Dafür müssen `socat` und `nghttpx` installiert sein. Unter Ubuntu liegt `nghttpx` im Paket `nghttp2-proxy`, oft als `/usr/sbin/nghttpx`.
 
